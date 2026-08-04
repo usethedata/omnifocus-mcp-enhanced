@@ -34,6 +34,14 @@ Release acceptance uses the same clean build, test, package, and OmniFocus smoke
 - Treat linked attachment access as an explicit local-file capability with a defined policy and clear errors.
 - Keep calendar dates as calendar values instead of round-tripping them through UTC timestamps.
 - Preserve contributor attribution when incorporating an existing pull request.
+- Keep `@hono/node-server` out of `dependencies`. It is a direct dependency of
+  `@modelcontextprotocol/sdk`, so it installs regardless, and nothing in this
+  package imports it. It appears only under `overrides`, which pins the
+  transitive copy above the advisory-affected versions without claiming a
+  direct dependency the code does not have. Declaring it in both places made
+  the manifest assert a dependency that never existed; the override alone is
+  sufficient, verified by confirming the resolved tree still yields
+  `@hono/node-server` 2.0.12 and `hono` 4.13.0 with a clean audit.
 
 ## GitHub Workflow
 
