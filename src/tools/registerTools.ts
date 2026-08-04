@@ -213,7 +213,7 @@ const TOOLS = [
   {
     name: 'manage_perspectives',
     description:
-      'List, inspect, and edit OmniFocus custom perspectives and their filter rules. Use this to explain why a perspective shows what it shows, or to change its rules. Perspectives are saved views, not tags. list/get are read-only; update rewrites rules in place and never creates or deletes a perspective.',
+      'List, inspect, and edit OmniFocus custom perspectives and their filter rules. Use this to explain why a perspective shows what it shows, or to change its rules. Perspectives are saved views, not tags. list/get are read-only; update rewrites rules in place. Creating and deleting are not supported because OmniFocus exposes no automation API for either: Perspective.Custom is not a constructor, creation is only possible by importing a bundle (which changes the identifier), and deletion is only reachable through AppleScript. Ask the user to add or remove a perspective in the app, then edit its rules here.',
     tool: managePerspectivesTool,
     annotations: MUTATING_TOOL,
   },
