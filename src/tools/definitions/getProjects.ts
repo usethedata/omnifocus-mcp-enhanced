@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getProjects } from '../primitives/getProjects.js';
 import { getProjectsDueForReview } from '../primitives/getProjectsDueForReview.js';
+import { projectSchema } from './sharedOutputSchemas.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 const inputSchema = z
@@ -48,6 +49,18 @@ export const schema = inputSchema.superRefine((args, ctx) => {
   }
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  view: z.enum(['all', 'due_for_review']),
+  count: z.number().int(),
+  projects: z
+    .array(projectSchema)
+    .describe('The projects the text describes, in the order shown'),
+});
+
 interface ProjectDependencies {
   getProjects: typeof getProjects;
   getProjectsDueForReview: typeof getProjectsDueForReview;
@@ -90,7 +103,14 @@ export function createHandler(dependencies: ProjectDependencies) {
               folderName: args.folderName,
               includeReviewData: args.includeReviewData !== false,
             });
-      return { content: [{ type: 'text' as const, text: result }] };
+      return {
+        content: [{ type: 'text' as const, text: result.text }],
+        structuredContent: {
+          view,
+          count: result.projects.length,
+          projects: result.projects,
+        },
+      };
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Unknown error occurred';

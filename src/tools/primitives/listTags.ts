@@ -35,12 +35,17 @@ function parseListTagsResult(result: unknown): ListTagsResult {
   };
 }
 
-export async function listTags(includeInactive = true): Promise<string> {
+export interface ListTagsOutput {
+  tags: OmniFocusTagSummary[];
+  text: string;
+}
+
+export async function listTags(includeInactive = true): Promise<ListTagsOutput> {
   const result = await executeOmniFocusScript('@listTags.js', { includeInactive });
   const data = parseListTagsResult(result);
 
   if (data.tags.length === 0) {
-    return '# OmniFocus Tags\n\nNo tags found.';
+    return { tags: [], text: '# OmniFocus Tags\n\nNo tags found.' };
   }
 
   const lines = data.tags.map(tag => {
@@ -49,7 +54,10 @@ export async function listTags(includeInactive = true): Promise<string> {
     return `- ${tag.name} [${status}] (id:${tag.id}${parent})`;
   });
 
-  return `# OmniFocus Tags (${data.count})\n\n${lines.join('\n')}`;
+  return {
+    tags: data.tags,
+    text: `# OmniFocus Tags (${data.count})\n\n${lines.join('\n')}`,
+  };
 }
 
 export { parseListTagsResult };

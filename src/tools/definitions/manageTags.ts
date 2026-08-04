@@ -4,6 +4,7 @@ import { editTag } from '../primitives/editTag.js';
 import { removeTag } from '../primitives/removeTag.js';
 import { listTags } from '../primitives/listTags.js';
 import { searchTags } from '../primitives/searchTags.js';
+import { tagSchema } from './sharedOutputSchemas.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const inputSchema = z
@@ -128,6 +129,39 @@ export const schema = inputSchema.superRefine((args, ctx) => {
   }
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * This tool routes five actions with different results, so `action` is the only
+ * required field and each payload field is optional. A caller reads `action`
+ * first and then the fields that action produces.
+ */
+export const outputSchema = z.object({
+  action: z.enum(['list', 'search', 'add', 'edit', 'remove']),
+  tags: z
+    .array(tagSchema)
+    .optional()
+    .describe('list and search: the tags the text lists'),
+  tagId: z.string().optional().describe('add and edit: the affected tag ID'),
+  name: z.string().optional().describe('add, edit, and remove: the tag name'),
+  changedProperties: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('edit: which properties changed'),
+  affectedTaskCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('remove: tasks that lost the tag; the tasks themselves survive'),
+  childTagCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('remove: child tags deleted along with the parent'),
+});
+
 interface TagDependencies {
   addTag: typeof addTag;
   editTag: typeof editTag;
@@ -170,7 +204,10 @@ export function createHandler(dependencies: TagDependencies) {
           const result = await dependencies.listTags(
             args.includeInactive !== false,
           );
-          return { content: [{ type: 'text' as const, text: result }] };
+          return {
+            content: [{ type: 'text' as const, text: result.text }],
+            structuredContent: { action: 'list', tags: result.tags },
+          };
         }
         case 'search': {
           const result = await dependencies.searchTags({
@@ -178,7 +215,10 @@ export function createHandler(dependencies: TagDependencies) {
             exactMatch: args.exactMatch,
             includeInactive: args.includeInactive,
           });
-          return { content: [{ type: 'text' as const, text: result }] };
+          return {
+            content: [{ type: 'text' as const, text: result.text }],
+            structuredContent: { action: 'search', tags: result.tags },
+          };
         }
         case 'add': {
           const result = await dependencies.addTag({
@@ -206,6 +246,11 @@ export function createHandler(dependencies: TagDependencies) {
                 text: `✅ Tag "${args.name}" created successfully ${locationText}.\n\nid: ${result.tagId}`,
               },
             ],
+            structuredContent: {
+              action: 'add',
+              tagId: result.tagId,
+              name: args.name,
+            },
           };
         }
         case 'edit': {
@@ -234,6 +279,12 @@ export function createHandler(dependencies: TagDependencies) {
                 text: `✅ Tag "${result.name}" updated successfully.\nChanged: ${result.changedProperties || 'nothing'}\n\nid: ${result.id}`,
               },
             ],
+            structuredContent: {
+              action: 'edit',
+              tagId: result.id,
+              name: result.name,
+              changedProperties: result.changedProperties ?? null,
+            },
           };
         }
         case 'remove': {
@@ -258,6 +309,12 @@ export function createHandler(dependencies: TagDependencies) {
                   text: `✅ Tag "${result.name}" removed successfully.${detailText}\n\nTasks themselves were not deleted.`,
                 },
               ],
+              structuredContent: {
+                action: 'remove',
+                name: result.name,
+                affectedTaskCount: result.affectedTaskCount ?? 0,
+                childTagCount: result.childTagCount ?? 0,
+              },
             };
           }
           let errorMessage = 'Failed to remove tag';

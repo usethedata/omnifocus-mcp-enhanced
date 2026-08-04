@@ -11,11 +11,11 @@ function stubDependencies() {
     dependencies: {
       listTags: async (includeInactive?: boolean) => {
         calls.push({ method: 'list', args: includeInactive });
-        return 'tag list';
+        return { tags: [{ id: 'tag-1', name: 'Work', parentTagID: null, active: true }], text: 'tag list' };
       },
       searchTags: async (args: unknown) => {
         calls.push({ method: 'search', args });
-        return 'tag search';
+        return { tags: [{ id: 'tag-2', name: 'Home', parentTagID: null, active: true }], text: 'tag search' };
       },
       addTag: async (args: unknown) => {
         calls.push({ method: 'add', args });

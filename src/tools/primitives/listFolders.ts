@@ -36,12 +36,17 @@ function parseListFoldersResult(result: unknown): ListFoldersResult {
   };
 }
 
-export async function listFolders(includeDropped = true): Promise<string> {
+export interface ListFoldersOutput {
+  folders: OmniFocusFolderSummary[];
+  text: string;
+}
+
+export async function listFolders(includeDropped = true): Promise<ListFoldersOutput> {
   const result = await executeOmniFocusScript('@listFolders.js', { includeDropped });
   const data = parseListFoldersResult(result);
 
   if (data.folders.length === 0) {
-    return '# OmniFocus Folders\n\nNo folders found.';
+    return { folders: [], text: '# OmniFocus Folders\n\nNo folders found.' };
   }
 
   const lines = data.folders.map(folder => {
@@ -49,7 +54,10 @@ export async function listFolders(includeDropped = true): Promise<string> {
     return `- ${folder.name} [${folder.status}] (id:${folder.id}${parent}, projects:${folder.projectCount})`;
   });
 
-  return `# OmniFocus Folders (${data.count})\n\n${lines.join('\n')}`;
+  return {
+    folders: data.folders,
+    text: `# OmniFocus Folders (${data.count})\n\n${lines.join('\n')}`,
+  };
 }
 
 export { parseListFoldersResult };

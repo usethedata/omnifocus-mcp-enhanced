@@ -22,11 +22,17 @@ test('get_projects routes project views with normalized defaults', async () => {
   const handler = createHandler({
     getProjects: async (args) => {
       calls.push({ method: 'all', args });
-      return 'all projects';
+      return {
+        projects: [{ id: 'proj-1', name: 'Launch' }],
+        text: 'all projects',
+      };
     },
     getProjectsDueForReview: async (args) => {
       calls.push({ method: 'review', args });
-      return 'review projects';
+      return {
+        projects: [{ id: 'proj-2', name: 'Review me' }],
+        text: 'review projects',
+      };
     },
   });
 

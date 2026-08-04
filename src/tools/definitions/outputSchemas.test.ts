@@ -8,7 +8,10 @@ import * as batchMoveTasks from './batchMoveTasks.js';
 import * as batchRemoveItems from './batchRemoveItems.js';
 import * as countTasks from './countTasks.js';
 import * as filterTasks from './filterTasks.js';
+import * as getProjects from './getProjects.js';
 import * as getTasks from './getTasks.js';
+import * as manageFolders from './manageFolders.js';
+import * as manageTags from './manageTags.js';
 
 /**
  * The SDK throws when a tool declaring an output schema returns success without
@@ -24,7 +27,10 @@ const MIGRATED = [
   { name: 'batch_move_tasks', module: batchMoveTasks },
   { name: 'batch_remove_items', module: batchRemoveItems },
   { name: 'filter_tasks', module: filterTasks },
+  { name: 'get_projects', module: getProjects },
   { name: 'get_tasks', module: getTasks },
+  { name: 'manage_folders', module: manageFolders },
+  { name: 'manage_tags', module: manageTags },
 ];
 
 test('every migrated tool exports an object output schema', () => {
@@ -282,4 +288,114 @@ test('get_tasks output schema accepts a perspective task carrying completion fie
     ],
   });
   assert.equal(parsed.tasks[0].completed, true);
+});
+
+test('get_projects output schema accepts both views', () => {
+  const all = getProjects.outputSchema.parse({
+    view: 'all',
+    count: 1,
+    projects: [
+      {
+        id: 'proj-1',
+        name: 'Launch',
+        status: 'Active',
+        folderName: 'Work',
+        taskCount: 12,
+        reviewInterval: { steps: 1, unit: 'weeks' },
+        nextReviewDate: '2026-08-11T09:00:00.000Z',
+      },
+    ],
+  });
+  assert.equal(all.projects[0].reviewInterval?.unit, 'weeks');
+
+  const review = getProjects.outputSchema.parse({
+    view: 'due_for_review',
+    count: 0,
+    projects: [],
+  });
+  assert.equal(review.count, 0);
+});
+
+test('get_projects output schema accepts a project without review data', () => {
+  // includeReviewData: false omits the review fields entirely.
+  const parsed = getProjects.outputSchema.parse({
+    view: 'all',
+    count: 1,
+    projects: [{ id: 'p', name: 'Bare' }],
+  });
+  assert.equal(parsed.projects[0].name, 'Bare');
+});
+
+test('manage_tags output schema covers every action it routes', () => {
+  assert.deepEqual(
+    manageTags.outputSchema.parse({
+      action: 'list',
+      tags: [{ id: 'tag-1', name: 'Work', parentTagID: null, active: true }],
+    }).tags?.length,
+    1,
+  );
+  assert.equal(
+    manageTags.outputSchema.parse({ action: 'search', tags: [] }).action,
+    'search',
+  );
+  assert.equal(
+    manageTags.outputSchema.parse({ action: 'add', tagId: 't', name: 'New' }).tagId,
+    't',
+  );
+  assert.equal(
+    manageTags.outputSchema.parse({
+      action: 'edit',
+      tagId: 't',
+      name: 'New',
+      changedProperties: 'name',
+    }).changedProperties,
+    'name',
+  );
+  assert.equal(
+    manageTags.outputSchema.parse({
+      action: 'remove',
+      name: 'Gone',
+      affectedTaskCount: 3,
+      childTagCount: 1,
+    }).childTagCount,
+    1,
+  );
+});
+
+test('manage_folders output schema covers every action it routes', () => {
+  assert.equal(
+    manageFolders.outputSchema.parse({
+      action: 'list',
+      folders: [
+        { id: 'f', name: 'Work', status: 'Active', parentFolderID: null, projectCount: 2 },
+      ],
+    }).folders?.length,
+    1,
+  );
+  assert.equal(
+    manageFolders.outputSchema.parse({
+      action: 'get',
+      folder: { id: 'f', name: 'Work', status: 'Active', parentFolderID: null },
+    }).folder?.id,
+    'f',
+  );
+  assert.equal(
+    manageFolders.outputSchema.parse({ action: 'add', folderId: 'f', name: 'New' })
+      .folderId,
+    'f',
+  );
+  assert.equal(
+    manageFolders.outputSchema.parse({
+      action: 'remove',
+      name: 'Gone',
+      deletedProjectCount: 2,
+      deletedTaskCount: 4,
+    }).deletedTaskCount,
+    4,
+  );
+});
+
+test('the mixed-operation routers reject an action they do not have', () => {
+  assert.throws(() => manageTags.outputSchema.parse({ action: 'get' }));
+  assert.throws(() => manageFolders.outputSchema.parse({ action: 'search' }));
 });

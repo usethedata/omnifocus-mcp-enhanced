@@ -1,5 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
-import { OmniFocusTagSummary, parseListTagsResult } from './listTags.js';
+import { ListTagsOutput, OmniFocusTagSummary, parseListTagsResult } from './listTags.js';
 
 export interface SearchTagsParams {
   query: string;
@@ -11,7 +11,7 @@ export interface SearchTagsParams {
  * Search OmniFocus tags by name (fuzzy by default).
  * Reuses the listTags OmniJS script and filters client-side.
  */
-export async function searchTags(params: SearchTagsParams): Promise<string> {
+export async function searchTags(params: SearchTagsParams): Promise<ListTagsOutput> {
   const includeInactive = params.includeInactive !== false;
   const exactMatch = params.exactMatch === true;
   const query = (params.query || '').trim();
@@ -30,7 +30,7 @@ export async function searchTags(params: SearchTagsParams): Promise<string> {
   });
 
   if (matches.length === 0) {
-    return `# Tag Search: "${query}"\n\nNo matching tags found.`;
+    return { tags: [], text: `# Tag Search: "${query}"\n\nNo matching tags found.` };
   }
 
   const lines = matches.map(tag => {
@@ -39,5 +39,8 @@ export async function searchTags(params: SearchTagsParams): Promise<string> {
     return `- ${tag.name} [${status}] (id:${tag.id}${parent})`;
   });
 
-  return `# Tag Search: "${query}" (${matches.length} match${matches.length === 1 ? '' : 'es'})\n\n${lines.join('\n')}`;
+  return {
+    tags: matches,
+    text: `# Tag Search: "${query}" (${matches.length} match${matches.length === 1 ? '' : 'es'})\n\n${lines.join('\n')}`,
+  };
 }

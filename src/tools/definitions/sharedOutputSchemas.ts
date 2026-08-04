@@ -116,26 +116,23 @@ export const projectSchema = z
   })
   .describe('A project as returned by the project reads');
 
+/** Field names follow OmniFocusTagSummary in primitives/listTags.ts. */
 export const tagSchema = z
   .object({
     id: z.string().describe('Stable OmniFocus tag ID'),
     name: z.string(),
-    parentId: z.string().nullable().optional(),
-    parentName: z.string().nullable().optional(),
+    parentTagID: z.string().nullable().optional(),
     active: z.boolean().optional(),
-    status: z.string().optional(),
-    taskCount: z.number().optional(),
   })
   .describe('A tag as returned by the tag reads');
 
+/** Field names follow OmniFocusFolderSummary in primitives/listFolders.ts. */
 export const folderSchema = z
   .object({
     id: z.string().describe('Stable OmniFocus folder ID'),
     name: z.string(),
-    parentId: z.string().nullable().optional(),
-    parentName: z.string().nullable().optional(),
+    parentFolderID: z.string().nullable().optional(),
     status: z.string().optional(),
     projectCount: z.number().optional(),
-    subfolderCount: z.number().optional(),
   })
   .describe('A folder as returned by the folder reads');

@@ -3,6 +3,7 @@ import { addFolder } from '../primitives/addFolder.js';
 import { editFolder } from '../primitives/editFolder.js';
 import { removeFolder } from '../primitives/removeFolder.js';
 import { listFolders } from '../primitives/listFolders.js';
+import { folderSchema } from './sharedOutputSchemas.js';
 import { getFolder } from '../primitives/getFolder.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
@@ -106,6 +107,43 @@ export const schema = inputSchema.superRefine((args, ctx) => {
   }
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * This tool routes five actions with different results, so `action` is the only
+ * required field and each payload field is optional. A caller reads `action`
+ * first and then the fields that action produces.
+ */
+export const outputSchema = z.object({
+  action: z.enum(['list', 'get', 'add', 'edit', 'remove']),
+  folders: z
+    .array(folderSchema)
+    .optional()
+    .describe('list: the folders the text lists'),
+  folder: folderSchema.optional().describe('get: the folder that was read'),
+  folderId: z
+    .string()
+    .optional()
+    .describe('add and edit: the affected folder ID'),
+  name: z.string().optional().describe('add, edit, and remove: the folder name'),
+  changedProperties: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('edit: which properties changed'),
+  deletedProjectCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('remove: projects permanently deleted with the folder'),
+  deletedTaskCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('remove: tasks permanently deleted with the folder'),
+});
+
 interface FolderDependencies {
   addFolder: typeof addFolder;
   editFolder: typeof editFolder;
@@ -148,7 +186,10 @@ export function createHandler(dependencies: FolderDependencies) {
           const result = await dependencies.listFolders(
             args.includeDropped !== false,
           );
-          return { content: [{ type: 'text' as const, text: result }] };
+          return {
+            content: [{ type: 'text' as const, text: result.text }],
+            structuredContent: { action: 'list', folders: result.folders },
+          };
         }
         case 'get': {
           const folder = await dependencies.getFolder({
@@ -186,6 +227,15 @@ export function createHandler(dependencies: FolderDependencies) {
           }
           return {
             content: [{ type: 'text' as const, text: lines.join('\n') }],
+            structuredContent: {
+              action: 'get',
+              folder: {
+                id: folder.id,
+                name: folder.name,
+                status: folder.status,
+                parentFolderID: folder.parentFolderID ?? null,
+              },
+            },
           };
         }
         case 'add': {
@@ -214,6 +264,11 @@ export function createHandler(dependencies: FolderDependencies) {
                 text: `✅ Folder "${args.name}" created successfully ${locationText}.\n\nid: ${result.folderId}`,
               },
             ],
+            structuredContent: {
+              action: 'add',
+              folderId: result.folderId,
+              name: args.name,
+            },
           };
         }
         case 'edit': {
@@ -241,6 +296,12 @@ export function createHandler(dependencies: FolderDependencies) {
                 text: `✅ Folder "${result.name}" updated successfully.\nChanged: ${result.changedProperties || 'nothing'}\n\nid: ${result.id}`,
               },
             ],
+            structuredContent: {
+              action: 'edit',
+              folderId: result.id,
+              name: result.name,
+              changedProperties: result.changedProperties ?? null,
+            },
           };
         }
         case 'remove': {
@@ -262,6 +323,12 @@ export function createHandler(dependencies: FolderDependencies) {
                   text: `✅ Folder "${result.name}" removed successfully.${cascadeWarning}`,
                 },
               ],
+              structuredContent: {
+                action: 'remove',
+                name: result.name,
+                deletedProjectCount: projectCount,
+                deletedTaskCount: taskCount,
+              },
             };
           }
           let errorMessage = 'Failed to remove folder';

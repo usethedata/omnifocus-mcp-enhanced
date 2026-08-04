@@ -1,4 +1,5 @@
 import { executeOmniFocusScript } from "../../utils/scriptExecution.js";
+import type { GetProjectsResult, ProjectSummary } from "./getProjects.js";
 
 export interface GetProjectsDueForReviewOptions {
   includeOnHold?: boolean;
@@ -6,7 +7,7 @@ export interface GetProjectsDueForReviewOptions {
 
 export async function getProjectsDueForReview(
   options: GetProjectsDueForReviewOptions = {},
-): Promise<string> {
+): Promise<GetProjectsResult> {
   const { includeOnHold = false } = options;
 
   try {
@@ -15,7 +16,7 @@ export async function getProjectsDueForReview(
     });
 
     if (typeof result === "string") {
-      return result;
+      return { projects: [], text: result };
     }
 
     if (result && typeof result === "object") {
@@ -25,9 +26,11 @@ export async function getProjectsDueForReview(
         throw new Error(data.error);
       }
 
+      let projects: ProjectSummary[] = [];
       let output = `## Projects Due for Review\n\n`;
 
       if (data.projects && Array.isArray(data.projects)) {
+        projects = data.projects as ProjectSummary[];
         if (data.projects.length === 0) {
           output += "No projects are currently due for review.\n";
         } else {
@@ -62,10 +65,10 @@ export async function getProjectsDueForReview(
         }
       }
 
-      return output;
+      return { projects, text: output };
     }
 
-    return "Unexpected result format from OmniFocus";
+    return { projects: [], text: "Unexpected result format from OmniFocus" };
   } catch (error) {
     console.error("Error in getProjectsDueForReview:", error);
     throw new Error(

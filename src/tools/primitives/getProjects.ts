@@ -6,9 +6,30 @@ export interface GetProjectsOptions {
   includeReviewData?: boolean;
 }
 
+/** A project as the OmniJS read serializes it. */
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  status?: string;
+  folderName?: string | null;
+  note?: string;
+  taskCount?: number;
+  flagged?: boolean;
+  dueDate?: string | null;
+  deferDate?: string | null;
+  nextReviewDate?: string | null;
+  lastReviewDate?: string | null;
+  reviewInterval?: { steps: number; unit: string } | null;
+}
+
+export interface GetProjectsResult {
+  projects: ProjectSummary[];
+  text: string;
+}
+
 export async function getProjects(
   options: GetProjectsOptions = {},
-): Promise<string> {
+): Promise<GetProjectsResult> {
   const { status, folderName, includeReviewData = true } = options;
 
   try {
@@ -19,7 +40,7 @@ export async function getProjects(
     });
 
     if (typeof result === "string") {
-      return result;
+      return { projects: [], text: result };
     }
 
     if (result && typeof result === "object") {
@@ -29,6 +50,7 @@ export async function getProjects(
         throw new Error(data.error);
       }
 
+      let projects: ProjectSummary[] = [];
       let output = `## Projects`;
 
       // Add filter summary
@@ -42,6 +64,7 @@ export async function getProjects(
       output += `\n\n`;
 
       if (data.projects && Array.isArray(data.projects)) {
+        projects = data.projects as ProjectSummary[];
         if (data.projects.length === 0) {
           output += "No projects found matching filters.\n";
         } else {
@@ -83,10 +106,10 @@ export async function getProjects(
         }
       }
 
-      return output;
+      return { projects, text: output };
     }
 
-    return "Unexpected result format from OmniFocus";
+    return { projects: [], text: "Unexpected result format from OmniFocus" };
   } catch (error) {
     console.error("Error in getProjects:", error);
     throw new Error(

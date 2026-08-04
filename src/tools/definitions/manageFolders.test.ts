@@ -11,7 +11,7 @@ function stubDependencies() {
     dependencies: {
       listFolders: async (includeDropped?: boolean) => {
         calls.push({ method: 'list', args: includeDropped });
-        return 'folder list';
+        return { folders: [{ id: 'folder-1', name: 'Work', status: 'Active', parentFolderID: null, projectCount: 2 }], text: 'folder list' };
       },
       getFolder: async (args: unknown) => {
         calls.push({ method: 'get', args });
