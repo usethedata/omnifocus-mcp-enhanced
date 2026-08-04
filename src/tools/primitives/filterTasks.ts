@@ -80,7 +80,34 @@ export interface FilterTasksOptions {
   cursor?: string;
 }
 
-export async function filterTasks(options: FilterTasksOptions = {}): Promise<string> {
+/**
+ * Structured result plus the rendered text. The text is built exactly as before;
+ * only the return shape changed, so the data no longer has to be re-derived by
+ * parsing prose.
+ */
+export interface FilterTasksResult {
+  tasks: TaskTreeNode[];
+  matchedCount: number;
+  totalCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+  text: string;
+}
+
+function textOnlyResult(text: string): FilterTasksResult {
+  return {
+    tasks: [],
+    matchedCount: 0,
+    totalCount: 0,
+    hasMore: false,
+    nextCursor: null,
+    text,
+  };
+}
+
+export async function filterTasks(
+  options: FilterTasksOptions = {},
+): Promise<FilterTasksResult> {
   try {
     // 设置默认值
     const {
@@ -107,8 +134,15 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
       continuation
     });
 
+    // Hoisted so the structured result can carry what the text describes.
+    let displayedTasks: TaskTreeNode[] = [];
+    let matchedCount = 0;
+    let totalCount = 0;
+    let hasMore = false;
+    let nextCursor: string | null = null;
+
     if (typeof result === 'string') {
-      return result;
+      return textOnlyResult(result);
     }
 
     // 如果结果是对象，格式化它
@@ -132,9 +166,12 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
         const matchedTasks = data.tasks as TaskTreeNode[];
         const limitedTasks = dedupeExpandedTopLevelTasks(matchedTasks, options.showSubtasks === true);
         const taskCount = matchedTasks.length;
-        const totalCount = typeof data.filteredCount === 'number'
+        totalCount = typeof data.filteredCount === 'number'
           ? data.filteredCount
           : taskCount;
+        displayedTasks = limitedTasks;
+        matchedCount = taskCount;
+        hasMore = data.hasMore === true;
 
         if (taskCount === 0) {
           output += '🎯 No tasks match your filter criteria.\n';
@@ -185,7 +222,7 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
           // 显示排序信息
           output += `\n📊 **Sorted by**: ${sortBy} (${sortOrder})\n`;
           if (data.hasMore && data.lastSortTuple) {
-            const nextCursor = encodeFilterTasksCursor(options, {
+            nextCursor = encodeFilterTasksCursor(options, {
               sortBy,
               sortOrder,
               lastValue: data.lastSortTuple.value ?? null,
@@ -198,10 +235,17 @@ export async function filterTasks(options: FilterTasksOptions = {}): Promise<str
         output += 'No task data available\n';
       }
 
-      return output;
+      return {
+        tasks: displayedTasks,
+        matchedCount,
+        totalCount,
+        hasMore,
+        nextCursor,
+        text: output,
+      };
     }
 
-    return 'Unexpected result format from OmniFocus';
+    return textOnlyResult('Unexpected result format from OmniFocus');
   } catch (error) {
     console.error('Error in filterTasks:', error);
     throw new Error(`Failed to filter tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);

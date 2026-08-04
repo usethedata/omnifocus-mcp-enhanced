@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { filterTasks } from '../primitives/filterTasks.js';
+import { taskNodeSchema } from './sharedOutputSchemas.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 // 任务状态枚举
@@ -220,6 +221,31 @@ export const schema = z.object({
     ),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  tasks: z
+    .array(taskNodeSchema)
+    .describe(
+      'The tasks the text describes, after dropping any top-level entry already shown as a subtask',
+    ),
+  matchedCount: z
+    .number()
+    .int()
+    .describe('Tasks returned by this page, before subtask deduplication'),
+  totalCount: z
+    .number()
+    .int()
+    .describe('Total current matches, which can exceed matchedCount'),
+  hasMore: z.boolean().describe('True when another page is available'),
+  nextCursor: z
+    .string()
+    .nullable()
+    .describe('Cursor for the next page, or null when there is none'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -231,9 +257,16 @@ export async function handler(
       content: [
         {
           type: 'text' as const,
-          text: result,
+          text: result.text,
         },
       ],
+      structuredContent: {
+        tasks: result.tasks,
+        matchedCount: result.matchedCount,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore,
+        nextCursor: result.nextCursor,
+      },
     };
   } catch (err: unknown) {
     const errorMessage =

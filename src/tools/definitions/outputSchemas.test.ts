@@ -7,6 +7,7 @@ import * as batchEditItems from './batchEditItems.js';
 import * as batchMoveTasks from './batchMoveTasks.js';
 import * as batchRemoveItems from './batchRemoveItems.js';
 import * as countTasks from './countTasks.js';
+import * as filterTasks from './filterTasks.js';
 
 /**
  * The SDK throws when a tool declaring an output schema returns success without
@@ -21,6 +22,7 @@ const MIGRATED = [
   { name: 'batch_edit_items', module: batchEditItems },
   { name: 'batch_move_tasks', module: batchMoveTasks },
   { name: 'batch_remove_items', module: batchRemoveItems },
+  { name: 'filter_tasks', module: filterTasks },
 ];
 
 test('every migrated tool exports an object output schema', () => {
@@ -162,4 +164,57 @@ test('batch_add_items output schema rejects a missing id key', () => {
       results: [{ type: 'task', name: 'Ok', success: true, error: null }],
     }),
   );
+});
+
+test('filter_tasks output schema accepts a nested task tree', () => {
+  const parsed = filterTasks.outputSchema.parse({
+    tasks: [
+      {
+        id: 'task-1',
+        name: 'Parent',
+        childrenCount: 1,
+        tags: [{ id: 'tag-1', name: 'High', path: 'Energy > High' }],
+        children: [
+          {
+            id: 'task-2',
+            name: 'Child',
+            dueDate: '2026-09-15T17:00:00.000Z',
+            projectId: null,
+            projectName: null,
+            inInbox: true,
+          },
+        ],
+      },
+    ],
+    matchedCount: 2,
+    totalCount: 9,
+    hasMore: true,
+    nextCursor: 'abc',
+  });
+  assert.equal(parsed.tasks[0].children?.[0].id, 'task-2');
+  assert.equal(parsed.nextCursor, 'abc');
+});
+
+test('filter_tasks output schema accepts an empty result with a null cursor', () => {
+  const parsed = filterTasks.outputSchema.parse({
+    tasks: [],
+    matchedCount: 0,
+    totalCount: 0,
+    hasMore: false,
+    nextCursor: null,
+  });
+  assert.equal(parsed.tasks.length, 0);
+});
+
+test('filter_tasks output schema accepts a task carrying only id and name', () => {
+  // Every other field is optional in TaskTreeNode, and a script that omits one
+  // must not turn a working read into a validation error.
+  const parsed = filterTasks.outputSchema.parse({
+    tasks: [{ id: 't', name: 'Bare' }],
+    matchedCount: 1,
+    totalCount: 1,
+    hasMore: false,
+    nextCursor: null,
+  });
+  assert.equal(parsed.tasks[0].name, 'Bare');
 });
