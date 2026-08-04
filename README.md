@@ -48,7 +48,7 @@ Full notes for every release are on the [Releases page](https://github.com/jqlts
 
 | Version | Date | Highlights |
 | --- | --- | --- |
-| **v2.2.0** | 2026-08-04 | `batch_edit_items` — fields, tags, and relative date shifts across up to 100 tasks in one verified, rollback-safe transaction. Also fixes exclusive tag groups, which never actually dropped a sibling tag |
+| **v2.2.0** | 2026-08-04 | `batch_edit_items` — fields, tags, relative date shifts, and project review cadence across up to 100 tasks or projects in one verified, rollback-safe transaction. Also fixes exclusive tag groups, which never actually dropped a sibling tag, and drops the phantom `fixed` field from review interval output |
 | **v2.1.1** | 2026-08-04 | Due, defer, and planned dates keep their time of day instead of collapsing to midnight |
 | **v2.1.0** | 2026-07-31 | `manage_perspectives` reads, explains, and edits custom perspective filter rules; skill CLI 2.1x faster |
 | **v2.0.0** | 2026-07-31 | **Breaking:** 41 tools consolidated into 25 (`get_tasks`, `get_projects`, `manage_*`); legacy names removed |
@@ -74,7 +74,7 @@ Full notes for every release are on the [Releases page](https://github.com/jqlts
 | **v1.11.0** | 2026-07-26 | Bundled `omnifocus-cli` agent skill — drive OmniFocus by shell instead of tool schemas |
 | **v1.10.0** | 2026-07-25 | Tag management, task notifications, plus MCP Prompts and Resources |
 | **v1.9.0** | 2026-07-25 | `append_to_note`, `count_tasks`, `duplicate_task` |
-| **v1.8.0** | 2026-07-25 | Folder management: `add_folder`, `edit_folder`, `remove_folder`, `list_folders`, `get_folder` |
+| **v1.8.0** | 2026-07-25 | Folder management: create, rename, move, and inspect nested folders (consolidated into `manage_folders` in v2.0.0) |
 | **v1.7.0** | 2026-07-24 | `set_repetition_rule` (OmniFocus 4.7+ ICS rules) and `exclusiveTags` |
 | **v1.6.10** | 2026-03-22 | Inbox completion, AppleScript escaping, and JSON escaping fixes |
 | **v1.6.9** | 2026-03-17 | Task attachments: metadata in reads plus `read_task_attachment` |
@@ -214,20 +214,25 @@ You do not need to memorize all tool names first.
 
 ## 💬 Example AI Conversations
 
-These work well in Claude Code or any MCP client that can call the same tools.
+**This is the primary way to use this server.** You don't call tools by hand — you talk to your
+assistant and it picks the tools. These prompts work in Claude Code, Claude Desktop, or any MCP
+client wired to the same server.
 
-### 1. Daily Planning
-
-Try saying:
+### Planning your day
 
 ```text
 Check my Forecast and flagged tasks, then tell me the 3 most important things to do today.
 Prefer tasks that take under 60 minutes first.
 ```
 
-### 2. Inbox Cleanup
+```text
+Open my custom perspective "今日工作安排" and summarize:
+- what is due soon
+- what looks blocked
+- what I can finish quickly
+```
 
-Try saying:
+### Clearing the Inbox
 
 ```text
 Review my Inbox and group the tasks into:
@@ -237,38 +242,41 @@ Review my Inbox and group the tasks into:
 Then help me clean up the obvious ones.
 ```
 
-### 3. Turn an Idea Into a Project
+```text
+Turn these meeting notes into OmniFocus tasks under the project "Website Refresh".
+Use subtasks where it makes sense and keep the task names short.
+```
 
-Try saying:
+### Shaping and editing work
 
 ```text
 Create a project called "Launch spring newsletter".
 Add the main subtasks, estimated minutes, and mark the most important step as flagged.
 ```
 
-### 4. Use a Custom Perspective
-
-Try saying:
-
 ```text
-Open my custom perspective "今日工作安排" and summarize:
-- what is due soon
-- what looks blocked
-- what I can finish quickly
+Everything in "Website Refresh" slipped a week.
+Show me the affected tasks first, then push every due date out by 7 days once I confirm.
 ```
 
-### 5. Batch Add From Notes
-
-Try saying:
-
 ```text
-Turn these meeting notes into OmniFocus tasks under the project "Website Refresh".
-Use subtasks where it makes sense and keep the task names short.
+Make "Weekly finance review" repeat every Monday at 9am,
+and add a reminder 30 minutes before it is due.
 ```
 
-### 6. Review Attachments Only When Needed
+### Reviewing
 
-Try saying:
+```text
+Which projects are due for review? Walk me through them one at a time,
+then mark the ones I confirm as reviewed.
+```
+
+```text
+My "Today" perspective is matching far too much.
+Show me the filter rules behind it and explain what each one does before changing anything.
+```
+
+### Working with attachments
 
 ```text
 Find the task called "Review design draft".
@@ -285,375 +293,20 @@ Only open the image attachment if there is one.
 
 ## 🎯 Core Capabilities
 
-### 1. 🏗️ Subtask Management
-
-Create complex task hierarchies with ease:
-
-```json
-// Create subtask by parent task name
-{
-  "name": "Analyze competitor keywords",
-  "parentTaskName": "SEO Strategy",
-  "note": "Focus on top 10 competitors",
-  "dueDate": "2025-01-15",
-  "estimatedMinutes": 120,
-  "tags": ["SEO", "Research"]
-}
-
-// Create subtask by parent task ID
-{
-  "name": "Write content outline",
-  "parentTaskId": "loK2xEAY4H1",
-  "flagged": true,
-  "estimatedMinutes": 60
-}
-```
-
-### 2. 🔍 Perspective Views
-
-Access all major OmniFocus perspectives programmatically:
-
-```bash
-# Inbox perspective
-get_tasks {"source": "inbox", "hideCompleted": true}
-
-# Flagged tasks
-get_tasks {"source": "flagged", "projectFilter": "SEO Project"}
-
-# Forecast (next 7 days)
-get_tasks {"source": "forecast", "days": 7, "hideCompleted": true}
-
-# Tasks by tag
-get_tasks {"source": "tag", "tagName": "AI", "exactMatch": false}
-
-# Every result shows its direct subtask count; expand the task tree on demand
-get_tasks {"source": "inbox", "showSubtasks": true, "maxSubtaskDepth": 2}
-```
-
-`showSubtasks` defaults to `false`. `maxSubtaskDepth` is a non-negative integer: `0` expands nothing, `1` shows direct children, and omitting it allows full recursion. List commands apply their completed-task visibility to descendants. Expanded descendants provide structure and do not need to match the top-level filter themselves.
-
-Detailed task reads preserve the assigned leaf tag and show its full hierarchy path. For example, a task assigned `守一` under `团队` is rendered as `团队 / 守一`; structured results retain the leaf `id`/`name` and add `path` plus `ancestorIds`. Compact output continues to omit tags.
-
-### 3. 🚀 Ultimate Task Filter
-
-Create any perspective imaginable with advanced filtering:
-
-```bash
-# Time management view (30min tasks due this week)
-filter_tasks {
-  "taskStatus": ["Available", "Next"],
-  "estimateMax": 30,
-  "dueThisWeek": true
-}
-
-# Deep work view (60+ minute tasks with notes)
-filter_tasks {
-  "estimateMin": 60,
-  "hasNote": true,
-  "taskStatus": ["Available"]
-}
-
-# Planned work view (tasks planned for today)
-filter_tasks {
-  "plannedToday": true,
-  "sortBy": "plannedDate"
-}
-
-# Project overdue tasks
-filter_tasks {
-  "projectFilter": "Website Redesign",
-  "taskStatus": ["Overdue", "DueSoon"]
-}
-
-# Keep the same matching rules, but include two levels of task structure
-filter_tasks {
-  "flagged": true,
-  "showSubtasks": true,
-  "maxSubtaskDepth": 2
-}
-
-# Compact broad discovery for planning (omits notes and full tags)
-filter_tasks {
-  "plannedToday": true,
-  "limit": 30,
-  "outputMode": "compact"
-}
-```
-
-`daily_review` is the one-step daily-planning Prompt. Optionally provide `availableMinutes`; when omitted, it does not assume an eight-hour day. It starts with exact counts, reads bounded candidates, selects exactly three priorities when possible, and returns `今日重点`, `可执行下一步`, `阻塞项`, and `容量/截止风险`. Any proposed OmniFocus changes are grouped into one confirmation request.
-
-When a filtered result has more tasks, `filter_tasks` returns an opaque next cursor. Pass it back with the same filters and sorting:
-
-```json
-{
-  "flagged": true,
-  "limit": 30,
-  "sortBy": "dueDate",
-  "outputMode": "compact",
-  "cursor": "<next cursor>"
-}
-```
-
-Changing filters or sorting invalidates the cursor. `limit`, `outputMode`, and task-tree rendering may change between pages. Each page reads current OmniFocus state, so pagination is real-time best effort rather than a snapshot.
-
-### 4. 🌟 **NEW: Native Custom Perspective Access**
-
-Access your OmniFocus custom perspectives with hierarchical task display:
-
-```bash
-# List all your custom perspectives
-manage_perspectives {"action": "list"}
-
-# Read a perspective's filter rules, explained in plain language
-manage_perspectives {"action": "get", "name": "今日工作安排"}
-
-# 🌳 NEW: Project tree view (default)
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "今日工作安排",  # Your custom perspective name
-  "displayMode": "project_tree",    # project_tree | task_tree | flat
-  "hideCompleted": true
-}
-
-# Global task tree (legacy showHierarchy=true equivalent)
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "Today Review",
-  "displayMode": "task_tree"
-}
-
-# Flat list (legacy groupByProject=false equivalent)
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "Weekly Planning",
-  "displayMode": "flat"
-}
-```
-
-**Why This Is Powerful:**
-
-- ✅ **Native Integration** - Uses OmniFocus `Perspective.Custom` API directly
-- ✅ **Tree Structure** - Visual parent-child task relationships with ├─, └─ symbols
-- ✅ **Project-First Grouping** - Project header first, then nested subtasks
-- ✅ **Readable Metadata** - Detailed task reads show full notes and hierarchical tag paths such as `#Team / Member`; compact reads still omit tags
-- ✅ **AI-Friendly** - Enhanced descriptions prevent tool selection confusion
-- ✅ **Professional Output** - Clean, readable task hierarchies
-
-### 5. 🎯 Batch Operations
-
-Efficiently manage multiple tasks:
-
-```json
-{
-  "items": [
-    {
-      "type": "task",
-      "name": "Website Technical SEO",
-      "projectName": "SEO Project",
-      "note": "Optimize technical aspects"
-    },
-    {
-      "type": "task",
-      "name": "Page Speed Optimization",
-      "parentTaskName": "Website Technical SEO",
-      "estimatedMinutes": 180,
-      "flagged": true
-    },
-    {
-      "type": "task",
-      "name": "Mobile Responsiveness",
-      "parentTaskName": "Website Technical SEO",
-      "estimatedMinutes": 90
-    }
-  ]
-}
-```
-
-CLI tip for `mcporter`:
-
-```bash
-# Prefer explicit JSON args for complex arrays / nested objects
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "Website Technical SEO",
-      "projectName": "SEO Project"
-    }
-  ]
-}'
-```
-
-If you pass a subtask with `parentTaskId` or `parentTaskName`, do not also pass `projectName`. Subtasks inherit the project from their parent task.
-
-Working `mcporter` examples:
-
-```bash
-# 1) Batch-create top-level tasks in a project
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "Parent: Category A",
-      "projectName": "OmniFocus MCP Batch Test"
-    },
-    {
-      "type": "task",
-      "name": "Parent: Category B",
-      "projectName": "OmniFocus MCP Batch Test"
-    }
-  ]
-}'
-```
-
-```bash
-# 2) Create parent + child in one batch
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "Parent: Category A",
-      "projectName": "OmniFocus MCP Batch Test"
-    },
-    {
-      "type": "task",
-      "name": "Child: A1",
-      "parentTaskName": "Parent: Category A"
-    }
-  ]
-}'
-```
-
-```bash
-# 3) Safer two-step flow when adding many subtasks to existing parents
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "Child: A1",
-      "parentTaskName": "Parent: Category A"
-    },
-    {
-      "type": "task",
-      "name": "Child: A2",
-      "parentTaskName": "Parent: Category A"
-    },
-    {
-      "type": "task",
-      "name": "Child: B1",
-      "parentTaskName": "Parent: Category B"
-    }
-  ]
-}'
-```
-
-This will fail, by design:
-
-```bash
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "Child: A1",
-      "projectName": "OmniFocus MCP Batch Test",
-      "parentTaskName": "Parent: Category A"
-    }
-  ]
-}'
-```
-
-Because a subtask must inherit its project from the parent task.
-
-Editing a set of tasks works the same way. Each item names one task and carries
-only the fields it changes — an omitted field is untouched, an explicit `null`
-clears it, and dates take either an absolute value or a signed shift:
-
-```bash
-# Push three tasks out a week, retag one, and clear an estimate
-mcporter call omnifocus.batch_edit_items --args '{
-  "items": [
-    { "taskId": "abc123", "dueDateShift": "+1w" },
-    { "taskId": "def456", "dueDateShift": "+1w", "flagged": true },
-    { "taskId": "ghi789", "dueDateShift": "+1m", "addTags": ["Deep Work"], "estimatedMinutes": null }
-  ]
-}'
-```
-
-Shifts accept `d`, `w`, and `m`. A month shift clamps to the target month end, so
-31 January plus one month lands in February rather than March. A shift against a
-task that has no value in that field fails the whole request instead of inventing
-a date.
-
-Preview a large edit before applying it with `"dryRun": true`, which returns the
-same per-field diff and writes nothing.
-
-Completed and dropped tasks are refused: OmniFocus accepts writes to them
-silently, and a bulk edit that quietly rewrites finished work is worse than a
-refusal. Use `edit_item` for a single deliberate change.
-
-### 6. Project Shaping
-
-Use `project_shaping` to turn meeting notes, brainstorming, or a task list into a readable project tree. The assistant labels inferred metadata, resolves Folder and Tag stable IDs, and asks for explicit confirmation of the final tree before calling `create_project_from_outline` once.
-
-```json
-{
-  "project": {
-    "name": "Website launch",
-    "folderId": "folder-id",
-    "tagIds": ["tag-id"],
-    "sequential": true,
-    "tasks": [
-      {
-        "name": "Confirm information architecture",
-        "estimatedMinutes": 60,
-        "children": [{ "name": "Review navigation" }]
-      }
-    ]
-  }
-}
-```
-
-The action accepts structured, reviewed fields—not raw meeting notes. It supports at most 200 tasks and eight task levels. Missing references cause zero writes. Execution or read-back failure triggers one bounded OmniFocus Undo; if cleanup cannot be confirmed, the error includes the residual project ID.
-
-### 7. Repeating Tasks
-
-Repetition is a first-class field. Create it, read it, change it, and clear it—all verified.
-
-```json
-{
-  "name": "Weekly admin checklist",
-  "repetition": {
-    "ruleString": "FREQ=WEEKLY;BYDAY=FR",
-    "scheduleType": "Regularly",
-    "anchorDateKey": "DueDate",
-    "catchUpAutomatically": true
-  }
-}
-```
-
-- `add_omnifocus_task` and task nodes of `create_project_from_outline` accept the same object. `UNTIL` and `COUNT` belong inside `ruleString`; the deprecated `method` parameter is never exposed.
-- `get_task_by_id` reports the stored rule plus the next occurrence. List reads add only `isRepeating`, so broad queries stay small.
-- `set_repetition_rule` verifies the saved rule field by field. A failed write or mismatch restores the previous rule; if restoration cannot be confirmed, the error names the task that needs manual review.
-- A verification failure during creation removes the task, or rolls back the whole project tree, so no item keeps a recurrence the user did not confirm.
-
-### 8. 🖼️ Attachment Inspection
-
-Discover images and linked files on a task first, then read only the attachment you need:
-
-```bash
-# List task details plus attachment metadata
-get_task_by_id {
-  "taskId": "abc123"
-}
-
-# Open an attachment returned by get_task_by_id
-read_task_attachment {
-  "taskId": "abc123",
-  "attachmentId": "embedded-1"
-}
-```
-
-`get_task_by_id` now reports attachment IDs, names, MIME guesses, source (`embedded` vs `linked`), and sizes when available. `read_task_attachment` returns images as MCP image content when possible, so AI clients can inspect the image directly instead of parsing base64 from plain text.
+| Capability | What it does | Key tools |
+| --- | --- | --- |
+| 🏗️ **Subtasks** | Full parent/child trees to any depth, with visible-child counts and on-demand expansion | `add_omnifocus_task`, `batch_add_items` |
+| 🔍 **Perspective views** | Inbox, Flagged, Forecast, and Tags as first-class reads | `get_tasks` |
+| 🌟 **Custom perspectives** | Read your own perspectives — and edit the filter rules behind them | `get_tasks` (`source: "custom"`), `manage_perspectives` |
+| 🚀 **Task filtering** | Dates, estimates, notes, tags, and status in one OmniJS predicate, with cursor pagination | `filter_tasks`, `count_tasks` |
+| 🎯 **Batch operations** | Up to 100 items per transaction — preflighted, verified, and rolled back on failure | `batch_add_items`, `batch_move_tasks`, `batch_complete_tasks`, `batch_edit_items`, `batch_remove_items` |
+| 📐 **Project shaping** | One confirmed outline becomes a complete project tree | `create_project_from_outline` |
+| 🔁 **Repeating tasks** | ICS repeat rules readable and writable, verified field by field | `set_repetition_rule` |
+| 🗂️ **Folders & tags** | Nested hierarchies with cycle protection and exclusive tag groups | `manage_folders`, `manage_tags` |
+| 📋 **Review workflow** | Native OmniFocus review metadata, marked in verified batches | `get_projects`, `mark_projects_reviewed` |
+| 🖼️ **Attachments** | Inspect metadata first, open images only when needed | `read_task_attachment` |
+
+Runnable examples for every row are in the **[Cookbook](docs/cookbook.md)**.
 
 ## 🛠️ Complete Tool Reference — 26 Tools
 
@@ -667,7 +320,7 @@ read_task_attachment {
 6. **move_task** - Move one task
 7. **batch_move_tasks** - Atomically move a confirmed task set
 8. **batch_complete_tasks** - Atomically complete or reopen up to 100 tasks
-9. **batch_edit_items** - Atomically edit fields and tags on up to 100 tasks, with relative date shifts
+9. **batch_edit_items** - Atomically edit fields, tags, and project review cadence on up to 100 tasks or projects, with relative date shifts
 10. **batch_add_items** - Add multiple tasks or projects
 11. **batch_remove_items** - Atomically delete a confirmed item set
 12. **create_project_from_outline** - Create and verify one complete project tree
@@ -795,225 +448,35 @@ Batch move feature roadmap (future): [docs/roadmap/2026-02-25-batch-move-tasks-p
 
 ## 🚀 Quick Start Examples
 
-### Basic Task Creation
+Three representative calls. Every tool, every argument, and the full CLI syntax live in the **[Cookbook](docs/cookbook.md)**.
 
 ```bash
-# Simple task
+# Create a task with a project, due date, and planned date
 add_omnifocus_task {
   "name": "Review quarterly goals",
   "projectName": "Planning",
   "dueDate": "2025-01-31",
   "plannedDate": "2025-01-28"
 }
-```
 
-### Advanced Task Management
-
-```bash
-# Create parent task
-add_omnifocus_task {
-  "name": "Launch Product Campaign",
-  "projectName": "Marketing",
-  "dueDate": "2025-02-15",
-  "tags": ["Campaign", "Priority"]
-}
-
-# Add subtasks
+# Nest a subtask — the parent task determines the project
 add_omnifocus_task {
   "name": "Design landing page",
   "parentTaskName": "Launch Product Campaign",
   "estimatedMinutes": 240,
   "flagged": true
 }
-```
 
-### Task Move Operations
-
-```bash
-# Move task to a project
-move_task {
-  "id": "task-id-123",
-  "targetProjectName": "Planning"
-}
-
-# Move task under another task
-move_task {
-  "id": "task-id-123",
-  "targetParentTaskId": "parent-task-id-456"
-}
-
-# Move task back to inbox
-move_task {
-  "id": "task-id-123",
-  "targetInbox": true
-}
-
-# Execute a user-confirmed organization plan as one atomic batch
-batch_move_tasks {
-  "moves": [
-    { "taskId": "task-1", "projectId": "project-1" },
-    { "taskId": "task-2", "parentTaskId": "parent-task-1" }
-  ]
-}
-```
-
-Task move safety rules:
-
-- Name lookups fail fast on duplicates and ask you to use IDs.
-- Destination must be exactly one type: project OR parent task OR inbox.
-- Moving a task into itself/its descendants is blocked to prevent cycles.
-- `batch_move_tasks` accepts stable IDs only, validates the complete plan before changing anything, and verifies every final destination.
-- If batch preflight fails, no task is moved. Call it only after the user confirms the displayed organization proposal.
-
-You can also move with `edit_item` and combine move + field updates:
-
-```bash
-edit_item {
-  "itemType": "task",
-  "id": "task-id-123",
-  "newProjectName": "Planning",
-  "newName": "Review tmux workflow",
-  "newFlagged": true
-}
-```
-
-### Smart Task Discovery
-
-```bash
-# Find high-priority work
+# Find high-priority work you can actually finish
 filter_tasks {
   "flagged": true,
   "taskStatus": ["Available"],
   "estimateMax": 120,
   "hasEstimate": true
 }
-
-# Today's completed work
-filter_tasks {
-  "completedToday": true,
-  "taskStatus": ["Completed"],
-  "sortBy": "project"
-}
 ```
 
-### 🌟 Custom Perspective Usage
-
-```bash
-# List your custom perspectives
-manage_perspectives {"action": "list"}
-
-# Access a custom perspective with project tree
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "Today Review",
-  "displayMode": "project_tree",
-  "hideCompleted": true
-}
-
-# Quick flat view of weekly planning
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "Weekly Planning",
-  "displayMode": "flat"
-}
-```
-
-### 📁 Folder Management
-
-```bash
-# List all folders with project counts
-manage_folders {"action": "list", "includeDropped": false}
-
-# Create a top-level folder
-manage_folders {"action": "add", "name": "Work"}
-
-# Create a nested folder
-manage_folders {"action": "add", "name": "Clients", "parentFolderName": "Work"}
-
-# Inspect a folder's projects and subfolders
-manage_folders {"action": "get", "name": "Work"}
-
-# Rename or move a folder (empty string moves to root)
-manage_folders {"action": "edit", "name": "Clients", "newName": "Key Clients"}
-manage_folders {"action": "edit", "name": "Key Clients", "newParentFolderName": ""}
-
-# Delete a folder (⚠️ also deletes all contained projects and tasks)
-manage_folders {"action": "remove", "name": "Old Archive"}
-```
-
-### ⚡ Productivity Tools
-
-```bash
-# Append a progress note without overwriting the existing note
-append_to_note {
-  "itemType": "task",
-  "name": "Write report",
-  "text": "Drafted section 1 today"
-}
-
-# Fast count: how many flagged tasks are still actionable?
-count_tasks {
-  "flagged": true,
-  "taskStatus": ["Available", "Next", "DueSoon", "Overdue"]
-}
-
-# How many tasks remain in a project (by status breakdown)
-count_tasks {"projectFilter": "Website Redesign"}
-
-# Duplicate a task template with its subtasks
-duplicate_task {
-  "name": "Weekly Review Checklist",
-  "newName": "Weekly Review - 2026-03-02"
-}
-
-# Duplicate without subtasks
-duplicate_task {"taskId": "abc123", "includeSubtasks": false}
-```
-
-### 🏷️ Tag Management
-
-```bash
-# Search and list tags
-manage_tags {"action": "search", "query": "work"}
-manage_tags {"action": "list", "includeInactive": false}
-
-# Create a tag, optionally nested
-manage_tags {"action": "add", "name": "Deep Work"}
-manage_tags {"action": "add", "name": "Client A", "parentTagName": "Clients"}
-
-# Rename, pause, or move a tag ("" moves to root)
-manage_tags {"action": "edit", "name": "Deep Work", "newName": "Focus"}
-manage_tags {"action": "edit", "name": "Focus", "newStatus": "onHold"}
-manage_tags {"action": "edit", "name": "Client A", "newParentTagName": ""}
-
-# Delete a tag (tasks are kept, they just lose the tag)
-manage_tags {"action": "remove", "name": "Obsolete"}
-```
-
-### 🔔 Task Notifications
-
-```bash
-# See what reminders a task has
-manage_task_notifications {"action": "list", "taskName": "Submit report"}
-
-# Remind at a fixed time
-manage_task_notifications {
-  "action": "add",
-  "taskName": "Submit report",
-  "absoluteDate": "2026-03-05T09:00:00"
-}
-
-# Remind 30 minutes before the due date (requires a due date)
-manage_task_notifications {
-  "action": "add",
-  "taskName": "Submit report",
-  "relativeMinutes": -30
-}
-
-# Remove one by index, or clear them all
-manage_task_notifications {"action": "remove", "taskName": "Submit report", "index": 0}
-manage_task_notifications {"action": "remove", "taskName": "Submit report", "removeAll": true}
-```
+The **[Cookbook](docs/cookbook.md)** covers the rest: task moves, custom perspectives, folder and tag management, notifications, repetition rules, batch operations, and attachment inspection.
 
 ## 🔧 Configuration
 
@@ -1077,6 +540,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - **NPM Package**: https://www.npmjs.com/package/omnifocus-mcp-enhanced
+- **Cookbook** (all CLI/JSON examples): [docs/cookbook.md](docs/cookbook.md)
 - **GitHub Repository**: https://github.com/jqlts1/omnifocus-mcp-enhanced
 - **OmniFocus**: https://www.omnigroup.com/omnifocus/
 - **Model Context Protocol**: https://modelcontextprotocol.io/

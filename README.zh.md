@@ -44,7 +44,7 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 
 | 版本 | 日期 | 主要变化 |
 | --- | --- | --- |
-| **v2.2.0** | 2026-08-04 | `batch_edit_items`——单次验证事务内批量修改最多 100 个任务的字段、标签和相对日期偏移，失败回滚。同时修复互斥标签组：此前从未真正移除过冲突的同组标签 |
+| **v2.2.0** | 2026-08-04 | `batch_edit_items`——单次验证事务内批量修改最多 100 个任务或项目的字段、标签、相对日期偏移和项目复习周期，失败回滚。同时修复互斥标签组（此前从未真正移除过冲突的同组标签），并移除复习间隔输出中恒为 false 的 `fixed` 字段 |
 | **v2.1.1** | 2026-08-04 | 截止、推迟、计划日期保留具体时间，不再塌缩到零点 |
 | **v2.1.0** | 2026-07-31 | `manage_perspectives` 可读取、解释并编辑自定义透视的筛选规则；Skill CLI 提速 2.1 倍 |
 | **v2.0.0** | 2026-07-31 | **破坏性变更：** 41 个工具收敛为 25 个（`get_tasks`、`get_projects`、`manage_*`），旧工具名直接移除 |
@@ -70,7 +70,7 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 | **v1.11.0** | 2026-07-26 | 内置 `omnifocus-cli` Skill——用 shell 命令驱动，不必加载全部工具 schema |
 | **v1.10.0** | 2026-07-25 | 标签管理、任务通知，以及 MCP Prompts 和 Resources |
 | **v1.9.0** | 2026-07-25 | `append_to_note`、`count_tasks`、`duplicate_task` |
-| **v1.8.0** | 2026-07-25 | Folder 管理：`add_folder`、`edit_folder`、`remove_folder`、`list_folders`、`get_folder` |
+| **v1.8.0** | 2026-07-25 | Folder 管理：创建、重命名、移动和查看嵌套文件夹（v2.0.0 起合并为 `manage_folders`） |
 | **v1.7.0** | 2026-07-24 | `set_repetition_rule`（OmniFocus 4.7+ ICS 规则）与 `exclusiveTags` |
 | **v1.6.10** | 2026-03-22 | 修复 Inbox 任务完成、AppleScript 转义与 JSON 转义 |
 | **v1.6.9** | 2026-03-17 | 任务附件支持：读取返回附件元数据，新增 `read_task_attachment` |
@@ -195,66 +195,72 @@ npx -y mcporter@latest --config $(ls -t ~/.mcporter/generated/*.json | head -1) 
 
 ## 💬 和大模型对话的示例
 
-下面这些说法，在 Claude Code 或其他支持 MCP 的客户端里都很适合直接用。
+**这才是这个 server 的主要用法。** 你不需要手动调工具——直接跟助手说话，由它决定调哪个。
+下面这些说法在 Claude Code、Claude Desktop 或任何接了同一个 server 的 MCP 客户端里都能直接用。
 
-### 1. 每日规划
-
-你可以直接说：
+### 安排今天
 
 ```text
-看看我今天的 Forecast 和已标记任务，然后告诉我今天最重要的 3 件事。
-优先考虑 60 分钟以内能完成的任务。
+看一下我的 Forecast 和旗标任务，告诉我今天最重要的三件事。
+优先选 60 分钟以内能做完的。
 ```
 
-### 2. 清理 Inbox
-
-你可以直接说：
-
 ```text
-帮我看一下 Inbox，把这些任务分成：
-1. 今天做
-2. 以后安排
-3. 应该升级成项目
-然后顺手把明显的项整理掉。
+打开我的自定义透视「今日工作安排」，帮我总结：
+- 哪些快到期了
+- 哪些看起来被卡住了
+- 哪些能很快做完
 ```
 
-### 3. 把一个想法变成项目
-
-你可以直接说：
+### 清理收件箱
 
 ```text
-创建一个项目，名字叫“春季 newsletter 发布”。
-把主要步骤拆成子任务，补上预计时间，并把最关键的一步设成 flagged。
+看一遍我的 Inbox，把任务分成三类：
+1. 今天就做
+2. 之后再排
+3. 应该变成项目
+然后把明显的那些帮我清掉。
 ```
 
-### 4. 使用自定义透视
-
-你可以直接说：
-
 ```text
-打开我的自定义透视“今日工作安排”，帮我总结：
-- 哪些快到期
-- 哪些像是卡住了
-- 哪些可以快速做完
+把这段会议记录变成 OmniFocus 任务，放到「Website Refresh」项目下。
+该用子任务的地方用子任务，任务名尽量短。
 ```
 
-### 5. 根据笔记批量创建任务
-
-你可以直接说：
+### 塑形和批量修改
 
 ```text
-把这段会议纪要整理成 OmniFocus 任务，放到“网站改版”项目下。
-该拆成子任务的就拆，任务名尽量简短。
+建一个叫「春季通讯发布」的项目。
+把主要子任务加上，估好工时，最关键的那步打上旗标。
 ```
 
-### 6. 只在需要时查看附件
-
-你可以直接说：
+```text
+「Website Refresh」整体延期一周。
+先把受影响的任务列给我看，我确认之后再把每个截止日期都往后推 7 天。
+```
 
 ```text
-找到“检查设计稿”这个任务。
+把「每周财务复盘」设成每周一上午 9 点重复，并在到期前 30 分钟提醒我。
+```
+
+### 回顾
+
+```text
+哪些项目该做回顾了？一个一个带我过，
+我确认一个你就标记一个为已回顾。
+```
+
+```text
+我的「Today」透视匹配到的东西太多了。
+先把它背后的筛选规则列出来，逐条解释是什么意思，先别改。
+```
+
+### 处理附件
+
+```text
+找到叫「Review design draft」的任务。
 先告诉我它有哪些附件。
-如果里面有图片，再帮我打开图片附件。
+只有确实存在图片附件时，才打开那个图片。
 ```
 
 ## 🧭 实用建议
@@ -266,348 +272,20 @@ npx -y mcporter@latest --config $(ls -t ~/.mcporter/generated/*.json | head -1) 
 
 ## 🎯 核心功能
 
-### 1. 🏗️ 子任务管理
+| 能力 | 说明 | 主要工具 |
+| --- | --- | --- |
+| 🏗️ **子任务** | 任意深度的父子任务树，带可见子任务计数和按需展开 | `add_omnifocus_task`、`batch_add_items` |
+| 🔍 **透视视图** | Inbox、Flagged、Forecast、Tags 作为一等读取能力 | `get_tasks` |
+| 🌟 **自定义透视** | 不只读取自己的透视，还能编辑背后的筛选规则 | `get_tasks`（`source: "custom"`）、`manage_perspectives` |
+| 🚀 **任务筛选** | 日期、工时、备注、标签、状态统一在一个 OmniJS 谓词里，支持游标分页 | `filter_tasks`、`count_tasks` |
+| 🎯 **批量操作** | 单次事务最多 100 项，写前预检、写后验证、失败回滚 | `batch_add_items`、`batch_move_tasks`、`batch_complete_tasks`、`batch_edit_items`、`batch_remove_items` |
+| 📐 **项目塑形** | 一份确认过的方案一次建成完整项目树 | `create_project_from_outline` |
+| 🔁 **重复任务** | ICS 重复规则可读可写，逐字段验证 | `set_repetition_rule` |
+| 🗂️ **Folder 与标签** | 嵌套层级，带环路保护和互斥标签组 | `manage_folders`、`manage_tags` |
+| 📋 **回顾流程** | 使用 OmniFocus 原生回顾元数据，批量标记并验证 | `get_projects`、`mark_projects_reviewed` |
+| 🖼️ **附件** | 先看元数据，需要时才打开图片 | `read_task_attachment` |
 
-轻松创建复杂的任务层级：
-
-```json
-// 通过父任务名称创建子任务
-{
-  "name": "分析竞争对手关键词",
-  "parentTaskName": "SEO 策略",
-  "note": "重点关注前 10 名竞争对手",
-  "dueDate": "2025-01-15",
-  "estimatedMinutes": 120,
-  "tags": ["SEO", "研究"]
-}
-
-// 通过父任务 ID 创建子任务
-{
-  "name": "编写内容大纲",
-  "parentTaskId": "loK2xEAY4H1",
-  "flagged": true,
-  "estimatedMinutes": 60
-}
-```
-
-### 2. 🔍 透视视图
-
-程序化访问所有主要 OmniFocus 透视：
-
-```bash
-# 收件箱透视
-get_tasks {"source": "inbox", "hideCompleted": true}
-
-# 已标记任务
-get_tasks {"source": "flagged", "projectFilter": "SEO 项目"}
-
-# 预测（未来 7 天）
-get_tasks {"source": "forecast", "days": 7, "hideCompleted": true}
-
-# 按标签查找任务
-get_tasks {"source": "tag", "tagName": "AI", "exactMatch": false}
-
-# 每条结果都会显示直属子任务数量；需要时再展开任务树
-get_tasks {"source": "inbox", "showSubtasks": true, "maxSubtaskDepth": 2}
-```
-
-`showSubtasks` 默认为 `false`。`maxSubtaskDepth` 必须是非负整数：`0` 不展开，`1` 只显示直属子任务，不传则允许完整递归。列表命令对子任务沿用完成状态可见性规则；展开的子任务用于说明结构，本身不需要命中顶层过滤条件。
-
-详细任务读取会保留实际分配的叶标签，并显示完整层级路径。例如任务分配的是“团队”下的“守一”，输出显示为 `团队 / 守一`；结构化结果保留叶标签的 `id`/`name`，并新增 `path` 与 `ancestorIds`。Compact 输出仍省略标签。
-
-### 3. 🚀 终极任务过滤器
-
-创建任何可想象的透视，使用高级过滤：
-
-```bash
-# 时间管理视图（本周截止的 30 分钟任务）
-filter_tasks {
-  "taskStatus": ["Available", "Next"],
-  "estimateMax": 30,
-  "dueThisWeek": true
-}
-
-# 深度工作视图（60+ 分钟带备注的任务）
-filter_tasks {
-  "estimateMin": 60,
-  "hasNote": true,
-  "taskStatus": ["Available"]
-}
-
-# 计划日期视图（今天计划任务）
-filter_tasks {
-  "plannedToday": true,
-  "sortBy": "plannedDate"
-}
-
-# 项目逾期任务
-filter_tasks {
-  "projectFilter": "网站重设计",
-  "taskStatus": ["Overdue", "DueSoon"]
-}
-
-# 保持相同匹配规则，同时展示两层任务结构
-filter_tasks {
-  "flagged": true,
-  "showSubtasks": true,
-  "maxSubtaskDepth": 2
-}
-
-# 每日规划的紧凑型广泛发现（不返回备注和完整标签）
-filter_tasks {
-  "plannedToday": true,
-  "limit": 30,
-  "outputMode": "compact"
-}
-```
-
-`daily_review` 是一句话每日规划入口，可选传入 `availableMinutes`；不传时不会假设一天有八小时。它会先精确统计，再有界读取候选任务，在条件允许时自动选择三个重点，并固定输出 `今日重点`、`可执行下一步`、`阻塞项` 和 `容量/截止风险`。所有 OmniFocus 调整建议会合并成一次确认请求。
-
-当筛选结果还有更多任务时，`filter_tasks` 会返回不透明的下一页游标。使用相同筛选和排序参数原样传回：
-
-```json
-{
-  "flagged": true,
-  "limit": 30,
-  "sortBy": "dueDate",
-  "outputMode": "compact",
-  "cursor": "<下一页游标>"
-}
-```
-
-修改筛选或排序会使游标失效；翻页时可以修改 `limit`、`outputMode` 和任务树展示参数。每页都会读取 OmniFocus 当前状态，因此这是实时最佳努力分页，而不是固定快照。
-
-### 4. 🌟 **新功能：原生自定义透视访问**
-
-通过层级任务显示访问您的 OmniFocus 自定义透视：
-
-```bash
-# 列出所有自定义透视
-manage_perspectives {"action": "list"}
-
-# 读取透视的筛选规则，并以自然语言解释
-manage_perspectives {"action": "get", "name": "今日工作安排"}
-
-# 🌳 新功能：项目树视图（默认）
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "今日工作安排",  # 您的自定义透视名称
-  "displayMode": "project_tree",    # project_tree | task_tree | flat
-  "hideCompleted": true
-}
-
-# 全局任务树（等价于旧参数 showHierarchy=true）
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "今日复盘",
-  "displayMode": "task_tree"
-}
-
-# 平铺视图（等价于旧参数 groupByProject=false）
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "本周项目",
-  "displayMode": "flat"
-}
-```
-
-**功能强大的原因：**
-
-- ✅ **原生集成** - 直接使用 OmniFocus `Perspective.Custom` API
-- ✅ **树状结构** - 使用 ├─、└─ 符号显示父子任务关系
-- ✅ **项目优先分组** - 先按项目分组，再展示子任务层级
-- ✅ **信息表达清晰** - 详细任务读取展示完整备注和 `#团队 / 守一` 形式的标签路径；Compact 仍省略标签
-- ✅ **AI 友好** - 增强的描述防止工具选择混淆
-- ✅ **专业输出** - 清晰、可读的任务层级
-
-### 5. 🎯 批量操作
-
-高效管理多个任务：
-
-```json
-{
-  "items": [
-    {
-      "type": "task",
-      "name": "网站技术 SEO",
-      "projectName": "SEO 项目",
-      "note": "优化技术方面"
-    },
-    {
-      "type": "task",
-      "name": "页面速度优化",
-      "parentTaskName": "网站技术 SEO",
-      "estimatedMinutes": 180,
-      "flagged": true
-    },
-    {
-      "type": "task",
-      "name": "移动端响应式",
-      "parentTaskName": "网站技术 SEO",
-      "estimatedMinutes": 90
-    }
-  ]
-}
-```
-
-`mcporter` 调用提示：
-
-```bash
-# 复杂数组 / 嵌套对象，建议明确使用 --args JSON
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "网站技术 SEO",
-      "projectName": "SEO 项目"
-    }
-  ]
-}'
-```
-
-如果某条子任务传了 `parentTaskId` 或 `parentTaskName`，就不要再传 `projectName`。子任务会自动继承父任务所在项目。
-
-可直接运行的 `mcporter` 示例：
-
-```bash
-# 1）批量创建项目下的顶层任务
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "父任务：分类A",
-      "projectName": "OmniFocus MCP 批量测试"
-    },
-    {
-      "type": "task",
-      "name": "父任务：分类B",
-      "projectName": "OmniFocus MCP 批量测试"
-    }
-  ]
-}'
-```
-
-```bash
-# 2）单次批量里同时创建父任务和子任务
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "父任务：分类A",
-      "projectName": "OmniFocus MCP 批量测试"
-    },
-    {
-      "type": "task",
-      "name": "子任务：A1",
-      "parentTaskName": "父任务：分类A"
-    }
-  ]
-}'
-```
-
-```bash
-# 3）更稳妥的两步法：父任务已存在时，再批量创建多个子任务
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "子任务：A1",
-      "parentTaskName": "父任务：分类A"
-    },
-    {
-      "type": "task",
-      "name": "子任务：A2",
-      "parentTaskName": "父任务：分类A"
-    },
-    {
-      "type": "task",
-      "name": "子任务：B1",
-      "parentTaskName": "父任务：分类B"
-    }
-  ]
-}'
-```
-
-下面这种写法会失败，这属于预期行为：
-
-```bash
-mcporter call omnifocus.batch_add_items --args '{
-  "items": [
-    {
-      "type": "task",
-      "name": "子任务：A1",
-      "projectName": "OmniFocus MCP 批量测试",
-      "parentTaskName": "父任务：分类A"
-    }
-  ]
-}'
-```
-
-因为子任务必须继承父任务所在项目，不能再单独传 `projectName`。
-
-### 6. 项目塑形
-
-使用 `project_shaping` 把会议纪要、脑暴或任务清单整理成可读的项目树。助手会标明推断出的元数据，解析 Folder 与 Tag 的稳定 ID，并在调用一次 `create_project_from_outline` 前，要求用户明确确认最终项目树。
-
-```json
-{
-  "project": {
-    "name": "发布新网站",
-    "folderId": "folder-id",
-    "tagIds": ["tag-id"],
-    "sequential": true,
-    "tasks": [
-      {
-        "name": "确认信息架构",
-        "estimatedMinutes": 60,
-        "children": [{ "name": "评审导航" }]
-      }
-    ]
-  }
-}
-```
-
-操作工具只接受经过审阅的结构化字段，不接收原始会议纪要。最多支持 200 个任务、8 层任务层级。引用缺失时零写入；执行或读回验证失败时仅执行一次受限 OmniFocus Undo；如果无法确认清理完整，错误会返回残留项目 ID。
-
-### 7. 重复任务
-
-重复规则现在是一等字段：创建、读取、修改、清除都会经过验证。
-
-```json
-{
-  "name": "每周行政检查清单",
-  "repetition": {
-    "ruleString": "FREQ=WEEKLY;BYDAY=FR",
-    "scheduleType": "Regularly",
-    "anchorDateKey": "DueDate",
-    "catchUpAutomatically": true
-  }
-}
-```
-
-- `add_omnifocus_task` 和 `create_project_from_outline` 的任务节点使用同一个对象。`UNTIL` 和 `COUNT` 请编码进 `ruleString`；已废弃的 `method` 参数不对外暴露。
-- `get_task_by_id` 返回已保存的规则和下次发生时间；列表读取只增加 `isRepeating`，保持响应精简。
-- `set_repetition_rule` 会逐字段验证保存结果。写入失败或不匹配时恢复原规则；无法确认恢复时，错误会指出需要人工检查的任务。
-- 创建过程中验证失败会删除该任务，或回滚整棵项目树，确保不会留下用户没有确认过的重复规则。
-
-### 8. 🖼️ 附件查看
-
-先读取任务和附件元信息，再按需打开具体附件：
-
-```bash
-# 读取任务详情和附件元信息
-get_task_by_id {
-  "taskId": "abc123"
-}
-
-# 打开 get_task_by_id 返回的某个附件
-read_task_attachment {
-  "taskId": "abc123",
-  "attachmentId": "embedded-1"
-}
-```
-
-`get_task_by_id` 现在会返回附件 ID、名称、推断出的 MIME 类型、来源（`embedded` 或 `linked`）以及可用时的大小。`read_task_attachment` 会尽量把图片作为 MCP 图片内容直接返回，这样 AI 客户端可以直接查看图片，而不是只能读一段 base64 文本。
+每一行对应的可运行示例都在 **[示例大全](docs/cookbook.zh.md)**。
 
 ## 🛠️ 完整工具参考——26 个工具
 
@@ -621,7 +299,7 @@ read_task_attachment {
 6. **move_task** - 移动单个任务
 7. **batch_move_tasks** - 原子移动用户确认的任务集合
 8. **batch_complete_tasks** - 原子完成或恢复最多 100 个任务
-9. **batch_edit_items** - 原子修改最多 100 个任务的字段与标签，支持相对日期偏移
+9. **batch_edit_items** - 原子修改最多 100 个任务或项目的字段、标签与项目复习周期，支持相对日期偏移
 10. **batch_add_items** - 批量创建任务或项目
 11. **batch_remove_items** - 原子删除用户确认的项目集合
 12. **create_project_from_outline** - 创建并验证完整项目树
@@ -659,110 +337,35 @@ read_task_attachment {
 
 ## 🚀 快速开始示例
 
-### 基础任务创建
+这里只放三个有代表性的调用。完整的工具、参数和 CLI 语法都在 **[示例大全](docs/cookbook.zh.md)**。
 
 ```bash
-# 简单任务
+# 创建任务，带项目、截止日期和计划日期
 add_omnifocus_task {
-  "name": "回顾季度目标",
-  "projectName": "规划",
+  "name": "Review quarterly goals",
+  "projectName": "Planning",
   "dueDate": "2025-01-31",
   "plannedDate": "2025-01-28"
 }
-```
 
-### 高级任务管理
-
-```bash
-# 创建父任务
+# 挂一个子任务——父任务决定它属于哪个项目
 add_omnifocus_task {
-  "name": "启动产品活动",
-  "projectName": "营销",
-  "dueDate": "2025-02-15",
-  "tags": ["活动", "优先级"]
-}
-
-# 添加子任务
-add_omnifocus_task {
-  "name": "设计落地页",
-  "parentTaskName": "启动产品活动",
+  "name": "Design landing page",
+  "parentTaskName": "Launch Product Campaign",
   "estimatedMinutes": 240,
   "flagged": true
 }
-```
 
-### 任务转移操作
-
-```bash
-# 转移到项目
-move_task {
-  "id": "task-id-123",
-  "targetProjectName": "规划"
-}
-
-# 转移到父任务下
-move_task {
-  "id": "task-id-123",
-  "targetParentTaskId": "parent-task-id-456"
-}
-
-# 转移回 Inbox
-move_task {
-  "id": "task-id-123",
-  "targetInbox": true
-}
-
-# 用户确认整理方案后，一次原子执行整批移动
-batch_move_tasks {
-  "moves": [
-    { "taskId": "task-1", "projectId": "project-1" },
-    { "taskId": "task-2", "parentTaskId": "parent-task-1" }
-  ]
-}
-```
-
-`batch_move_tasks` 只接受稳定 ID，会在修改前验证完整方案、拒绝循环移动和无效目标，并在执行后验证每个任务的最终位置。预检失败时不会移动任何任务；只有用户确认已经展示的整理方案后才应调用。
-
-### 智能任务发现
-
-```bash
-# 找到高优先级工作
+# 找出真正做得完的高优先级工作
 filter_tasks {
   "flagged": true,
   "taskStatus": ["Available"],
   "estimateMax": 120,
   "hasEstimate": true
 }
-
-# 今日完成的工作
-filter_tasks {
-  "completedToday": true,
-  "taskStatus": ["Completed"],
-  "sortBy": "project"
-}
 ```
 
-### 🌟 自定义透视使用
-
-```bash
-# 列出您的自定义透视
-manage_perspectives {"action": "list"}
-
-# 访问带项目树的自定义透视
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "今日复盘",
-  "displayMode": "project_tree",
-  "hideCompleted": true
-}
-
-# 快速查看周计划的平铺视图
-get_tasks {
-  "source": "custom",
-  "perspectiveName": "本周项目",
-  "displayMode": "flat"
-}
-```
+其余内容都在 **[示例大全](docs/cookbook.zh.md)**：任务移动、自定义透视、Folder 与标签管理、通知、重复规则、批量操作和附件检查。
 
 ## 🔧 配置
 
@@ -819,6 +422,7 @@ MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 ## 🔗 链接
 
 - **NPM 包**: https://www.npmjs.com/package/omnifocus-mcp-enhanced
+- **示例大全**（全部 CLI/JSON 示例）: [docs/cookbook.zh.md](docs/cookbook.zh.md)
 - **GitHub 仓库**: https://github.com/jqlts1/omnifocus-mcp-enhanced
 - **OmniFocus**: https://www.omnigroup.com/omnifocus/
 - **模型上下文协议**: https://modelcontextprotocol.io/
