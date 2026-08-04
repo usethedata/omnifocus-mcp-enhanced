@@ -1,19 +1,31 @@
 import { z } from 'zod';
 import {
   batchEditItems,
+  REVIEW_UNITS,
   type BatchEditItemsParams,
 } from '../primitives/batchEditItems.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 const SHIFT_DESCRIPTION =
-  'Signed offset applied to the task\'s current value: [+-]<integer><d|w|m>, e.g. "+1w", "-3d", "+2m". Month shifts clamp to the target month end (31 Jan +1m lands in February). Fails if the task has no value in that field.';
+  'Signed offset applied to the current value: [+-]<integer><d|w|m>, e.g. "+1w", "-3d", "+2m". Month shifts clamp to the target month end (31 Jan +1m lands in February). Fails if the item has no value in that field.';
 
 const tagArray = z.array(z.string().min(1));
 
 const itemSchema = z
   .object({
-    taskId: z.string().min(1).describe('Stable OmniFocus task ID'),
-    name: z.string().optional().describe('New task name; must not be empty'),
+    taskId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Stable OmniFocus task ID. Set exactly one of taskId or projectId.'),
+    projectId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Stable OmniFocus project ID. Set exactly one of taskId or projectId. A project ID and its root task ID are the same string, so passing a project ID as taskId is rejected.',
+      ),
+    name: z.string().optional().describe('New name; must not be empty'),
     note: z
       .string()
       .optional()
@@ -57,6 +69,24 @@ const itemSchema = z
       .describe(
         'Tag names to replace all current tags with. Cannot combine with addTags or removeTags.',
       ),
+    reviewInterval: z
+      .object({
+        steps: z
+          .number()
+          .int()
+          .min(1)
+          .describe('How many units between reviews; at least 1'),
+        unit: z
+          .enum(REVIEW_UNITS)
+          .describe(
+            'Plural form only. OmniFocus silently discards the whole interval on any other spelling.',
+          ),
+      })
+      .strict()
+      .optional()
+      .describe(
+        'Projects only. Sets the review cadence; OmniFocus recomputes the next review date. The interval cannot be cleared.',
+      ),
   })
   .strict()
   .superRefine((item, ctx) => {
@@ -88,7 +118,35 @@ const itemSchema = z
       });
     }
 
-    const editable = Object.keys(item).filter((key) => key !== 'taskId');
+    const hasTaskId = 'taskId' in item && item.taskId !== undefined;
+    const hasProjectId = 'projectId' in item && item.projectId !== undefined;
+
+    if (hasTaskId && hasProjectId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['projectId'],
+        message: 'Set either taskId or projectId, not both',
+      });
+    }
+    if (!hasTaskId && !hasProjectId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['taskId'],
+        message: 'Each item requires a taskId or a projectId',
+      });
+    }
+
+    if ('reviewInterval' in item && !hasProjectId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reviewInterval'],
+        message: 'reviewInterval applies to projects; use projectId',
+      });
+    }
+
+    const editable = Object.keys(item).filter(
+      (key) => key !== 'taskId' && key !== 'projectId',
+    );
     if (editable.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -105,7 +163,7 @@ export const schema = z
       .min(1)
       .max(100)
       .describe(
-        'Tasks to edit, each named by stable ID and carrying only the fields it changes. A field left out is untouched; an explicit null clears it. List each task once.',
+        'Tasks and projects to edit, each named by one stable ID and carrying only the fields it changes. A field left out is untouched; an explicit null clears it. List each object once.',
       ),
     dryRun: z
       .boolean()
@@ -128,7 +186,7 @@ export async function handler(
       content: [
         {
           type: 'text' as const,
-          text: `Failed to edit tasks [${result.code || 'EDIT_FAILED'}]: ${result.error || 'Unknown error'}${restored}`,
+          text: `Failed to edit [${result.code || 'EDIT_FAILED'}]: ${result.error || 'Unknown error'}${restored}`,
         },
       ],
       isError: true,
@@ -140,8 +198,8 @@ export async function handler(
     result.items?.reduce((total, item) => total + item.changes.length, 0) || 0;
 
   const heading = result.dryRun
-    ? `🔍 Dry run — nothing written. ${count} task(s), ${changeCount} field change(s) would apply:`
-    : `✅ Edited ${count} task(s), ${changeCount} field change(s) verified:`;
+    ? `🔍 Dry run — nothing written. ${count} item(s), ${changeCount} field change(s) would apply:`
+    : `✅ Edited ${count} item(s), ${changeCount} field change(s) verified:`;
 
   const details = result.items
     ?.map((item, index) => {
@@ -150,7 +208,9 @@ export async function handler(
         const after = change.after === null ? '(none)' : change.after;
         return `   ${change.field}: ${before} → ${after}`;
       });
-      return [`${index + 1}. ${item.name} [${item.taskId}]`, ...lines].join('\n');
+      const id = item.projectId ?? item.taskId ?? '';
+      const kind = item.projectId ? 'project' : 'task';
+      return [`${index + 1}. ${item.name} [${kind} ${id}]`, ...lines].join('\n');
     })
     .join('\n');
 

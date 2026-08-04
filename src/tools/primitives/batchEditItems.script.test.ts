@@ -48,7 +48,8 @@ interface ScriptChange {
 }
 
 interface ScriptItem {
-  taskId: string;
+  taskId?: string;
+  projectId?: string;
   name: string;
   changes: ScriptChange[];
 }
@@ -66,7 +67,9 @@ interface ScriptResult {
 interface ScriptRun {
   result: ScriptResult;
   tasks: FakeTask[];
+  projects: FakeProject[];
   before: TaskSnapshot[];
+  projectsBefore: ProjectSnapshot[];
 }
 
 /** OmniJS exposes flattenedTags as an array carrying a byName lookup. */
@@ -77,6 +80,7 @@ interface TagLookup extends Array<FakeTag> {
 interface RunOptions {
   tasks?: FakeTask[];
   tags?: FakeTag[];
+  projects?: FakeProject[];
   /** Throw when this task's field is assigned, simulating a write failure. */
   failWrite?: { taskId: string; field: string };
   /** Silently store a wrong value, simulating a verification mismatch. */
@@ -219,6 +223,96 @@ function changeFor(result: ScriptResult, index: number, field: string): ScriptCh
   return change;
 }
 
+interface FakeReviewInterval {
+  steps: number;
+  unit: string;
+}
+
+interface FakeProject {
+  id: { primaryKey: string };
+  name: string;
+  note: string;
+  completed: boolean;
+  status: string;
+  dueDate: Date | null;
+  deferDate: Date | null;
+  plannedDate: Date | null;
+  flagged: boolean;
+  estimatedMinutes: number | null;
+  tags: FakeTag[];
+  reviewInterval: FakeReviewInterval;
+  addTag: (tag: FakeTag) => void;
+  removeTag: (tag: FakeTag) => void;
+  clearTags: () => void;
+}
+
+interface ProjectSnapshot {
+  id: string;
+  note: string;
+  steps: number;
+  unit: string;
+}
+
+/**
+ * A project whose reviewInterval getter returns a detached copy, matching the
+ * app: mutating the value read back has no effect until it is assigned.
+ */
+function project(id: string, steps = 1, unit = 'weeks'): FakeProject {
+  const stored: FakeReviewInterval = { steps, unit };
+  const value: FakeProject = {
+    id: { primaryKey: id },
+    name: `Project ${id}`,
+    note: '',
+    completed: false,
+    status: 'Active',
+    dueDate: null,
+    deferDate: null,
+    plannedDate: null,
+    flagged: false,
+    estimatedMinutes: null,
+    tags: [],
+    reviewInterval: stored,
+    addTag() {},
+    removeTag() {},
+    clearTags() {},
+  };
+
+  Object.defineProperty(value, 'reviewInterval', {
+    get: () => ({ steps: stored.steps, unit: stored.unit }),
+    set: (next: FakeReviewInterval) => {
+      stored.steps = next.steps;
+      stored.unit = next.unit;
+    },
+    configurable: true,
+  });
+
+  value.addTag = function (candidate: FakeTag) {
+    const carried = this.tags.some(
+      (existing) => existing.id.primaryKey === candidate.id.primaryKey,
+    );
+    if (!carried) this.tags.push(candidate);
+  };
+  value.removeTag = function (candidate: FakeTag) {
+    this.tags = this.tags.filter(
+      (existing) => existing.id.primaryKey !== candidate.id.primaryKey,
+    );
+  };
+  value.clearTags = function () {
+    this.tags = [];
+  };
+
+  return value;
+}
+
+function projectSnapshotOf(projects: FakeProject[]): ProjectSnapshot[] {
+  return projects.map((current) => ({
+    id: current.id.primaryKey,
+    note: current.note,
+    steps: current.reviewInterval.steps,
+    unit: current.reviewInterval.unit,
+  }));
+}
+
 function runScript(
   args: Record<string, unknown>,
   options: RunOptions = {},
@@ -234,6 +328,7 @@ function runScript(
 
   const tasks = options.tasks || [task('task-1')];
   const tags = options.tags || [];
+  const projects = options.projects || [];
 
   if (options.failWrite) {
     const failWrite = options.failWrite;
@@ -279,6 +374,7 @@ function runScript(
     injectedArgs: args,
     flattenedTasks: tasks,
     flattenedTags,
+    flattenedProjects: projects,
     Tag: {
       named: (name: string) => tags.find((current) => current.name === name) || null,
     },
@@ -286,6 +382,11 @@ function runScript(
       byIdentifier: (id: string) =>
         tasks.find((current) => current.id.primaryKey === id) || null,
       Status: { Dropped: 'Dropped' },
+    },
+    Project: {
+      byIdentifier: (id: string) =>
+        projects.find((current) => current.id.primaryKey === id) || null,
+      Status: { Active: 'Active', OnHold: 'OnHold', Done: 'Done', Dropped: 'Dropped' },
     },
     JSON,
     String,
@@ -297,7 +398,13 @@ function runScript(
     Boolean,
   });
 
-  return { result: JSON.parse(String(raw)) as ScriptResult, tasks, before };
+  return {
+    result: JSON.parse(String(raw)) as ScriptResult,
+    tasks,
+    projects,
+    before,
+    projectsBefore: projectSnapshotOf(projects),
+  };
 }
 
 test('batch edit script applies an absolute date and a flag, then verifies', () => {
@@ -585,7 +692,7 @@ test('batch edit script dry run reports the diff and writes nothing', () => {
   assert.deepEqual(snapshotOf(run.tasks), run.before);
 });
 
-test('batch edit script rejects a duplicate taskId before writing', () => {
+test('batch edit script rejects a duplicate id before writing', () => {
   const run = runScript({
     items: [
       { taskId: 'task-1', flagged: true },
@@ -594,7 +701,7 @@ test('batch edit script rejects a duplicate taskId before writing', () => {
   });
 
   assert.equal(run.result.success, false);
-  assert.match(run.result.error || '', /duplicate taskId/);
+  assert.match(run.result.error || '', /duplicate id/);
   assert.deepEqual(snapshotOf(run.tasks), run.before);
 });
 
@@ -619,4 +726,158 @@ test('batch edit script rejects an empty name', () => {
 
   assert.equal(run.result.success, false);
   assert.match(run.result.error || '', /name must not be empty/);
+});
+
+test('batch edit script sets a project review interval and verifies it', () => {
+  const run = runScript(
+    {
+      items: [
+        { projectId: 'proj-1', reviewInterval: { steps: 2, unit: 'months' } },
+      ],
+    },
+    { projects: [project('proj-1', 1, 'weeks')] },
+  );
+
+  assert.equal(run.result.success, true, run.result.error);
+  assert.equal(run.projects[0].reviewInterval.steps, 2);
+  assert.equal(run.projects[0].reviewInterval.unit, 'months');
+
+  const change = changeFor(run.result, 0, 'reviewInterval');
+  assert.equal(change.before, '1 weeks');
+  assert.equal(change.after, '2 months');
+  assert.equal(run.result.items?.[0].projectId, 'proj-1');
+  assert.equal(run.result.items?.[0].taskId, undefined);
+});
+
+test('batch edit script rejects a review interval unit OmniFocus would discard', () => {
+  for (const unit of ['week', 'fortnights', 'DAYS', '']) {
+    const run = runScript(
+      { items: [{ projectId: 'proj-1', reviewInterval: { steps: 2, unit } }] },
+      { projects: [project('proj-1')] },
+    );
+    assert.equal(run.result.success, false, `expected "${unit}" to be rejected`);
+    assert.match(run.result.error || '', /reviewInterval\.unit/);
+    assert.deepEqual(projectSnapshotOf(run.projects), run.projectsBefore);
+  }
+});
+
+test('batch edit script rejects review interval steps OmniFocus would coerce', () => {
+  for (const steps of [0, -2, 1.5]) {
+    const run = runScript(
+      { items: [{ projectId: 'proj-1', reviewInterval: { steps, unit: 'weeks' } }] },
+      { projects: [project('proj-1')] },
+    );
+    assert.equal(run.result.success, false, `expected ${steps} to be rejected`);
+    assert.match(run.result.error || '', /reviewInterval\.steps/);
+    assert.deepEqual(projectSnapshotOf(run.projects), run.projectsBefore);
+  }
+});
+
+test('batch edit script refuses reviewInterval on a task', () => {
+  const run = runScript({
+    items: [{ taskId: 'task-1', reviewInterval: { steps: 2, unit: 'weeks' } }],
+  });
+
+  assert.equal(run.result.success, false);
+  assert.match(run.result.error || '', /reviewInterval applies to projects/);
+});
+
+// A project's ID equals its root task's ID, so Task.byIdentifier resolves a
+// project ID to that root task. Without the kind check, this would edit the
+// root task instead of failing.
+test('batch edit script refuses a project ID supplied as taskId', () => {
+  const shared = 'shared-key';
+  const rootTask = task(shared);
+  const run = runScript(
+    { items: [{ taskId: shared, flagged: true }] },
+    { tasks: [rootTask], projects: [project(shared)] },
+  );
+
+  assert.equal(run.result.success, false);
+  assert.match(run.result.error || '', /is a project, not a task/);
+  assert.deepEqual(snapshotOf(run.tasks), run.before);
+});
+
+test('batch edit script refuses both taskId and projectId on one item', () => {
+  const run = runScript(
+    { items: [{ taskId: 'task-1', projectId: 'proj-1', flagged: true }] },
+    { tasks: [task('task-1')], projects: [project('proj-1')] },
+  );
+
+  assert.equal(run.result.success, false);
+  assert.match(run.result.error || '', /both taskId and projectId/);
+});
+
+test('batch edit script refuses a completed or dropped project', () => {
+  const done = project('proj-done');
+  done.completed = true;
+  const doneRun = runScript(
+    { items: [{ projectId: 'proj-done', note: 'nope' }] },
+    { projects: [done] },
+  );
+  assert.equal(doneRun.result.success, false);
+  assert.match(doneRun.result.error || '', /Project is completed/);
+
+  const dropped = project('proj-dropped');
+  dropped.status = 'Dropped';
+  const droppedRun = runScript(
+    { items: [{ projectId: 'proj-dropped', note: 'nope' }] },
+    { projects: [dropped] },
+  );
+  assert.equal(droppedRun.result.success, false);
+  assert.match(droppedRun.result.error || '', /Project is dropped/);
+});
+
+test('batch edit script edits tasks and projects in one verified batch', () => {
+  const run = runScript(
+    {
+      items: [
+        { taskId: 'task-1', flagged: true },
+        { projectId: 'proj-1', reviewInterval: { steps: 3, unit: 'days' }, note: 'cadence' },
+      ],
+    },
+    { tasks: [task('task-1')], projects: [project('proj-1')] },
+  );
+
+  assert.equal(run.result.success, true, run.result.error);
+  assert.equal(run.tasks[0].flagged, true);
+  assert.equal(run.projects[0].reviewInterval.steps, 3);
+  assert.equal(run.projects[0].reviewInterval.unit, 'days');
+  assert.equal(run.projects[0].note, 'cadence');
+});
+
+test('batch edit script restores a project review interval when a later item fails', () => {
+  const failing = task('task-2');
+  const run = runScript(
+    {
+      items: [
+        { projectId: 'proj-1', reviewInterval: { steps: 4, unit: 'weeks' } },
+        { taskId: 'task-2', flagged: true },
+      ],
+    },
+    {
+      tasks: [failing],
+      projects: [project('proj-1', 1, 'weeks')],
+      failWrite: { taskId: 'task-2', field: 'flagged' },
+    },
+  );
+
+  assert.equal(run.result.success, false);
+  assert.equal(run.result.code, 'EDIT_FAILED_RESTORED');
+  assert.equal(run.result.restored, true);
+  assert.deepEqual(projectSnapshotOf(run.projects), run.projectsBefore);
+});
+
+test('batch edit script dry run leaves a project review interval untouched', () => {
+  const run = runScript(
+    {
+      items: [{ projectId: 'proj-1', reviewInterval: { steps: 6, unit: 'months' } }],
+      dryRun: true,
+    },
+    { projects: [project('proj-1', 1, 'weeks')] },
+  );
+
+  assert.equal(run.result.success, true);
+  assert.equal(run.result.dryRun, true);
+  assert.deepEqual(projectSnapshotOf(run.projects), run.projectsBefore);
 });

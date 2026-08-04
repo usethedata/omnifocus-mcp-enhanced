@@ -230,8 +230,9 @@ bin/omnifocus-enhanced.cjs batch-complete-tasks --raw '{
 
 ### Batch editing
 
-Change fields and tags on up to 100 tasks in one verified transaction. Each item
-names one task and carries only the fields it changes:
+Change fields, tags, and project review cadence on up to 100 tasks or projects in
+one verified transaction. Each item names one object with `taskId` or `projectId`
+and carries only the fields it changes:
 
 ```bash
 bin/omnifocus-enhanced.cjs batch-edit-items --raw '{
@@ -254,6 +255,22 @@ bin/omnifocus-enhanced.cjs batch-edit-items --raw '{
 - Completed and dropped tasks are refused. Use `edit-item` for a single
   deliberate change to finished work
 - Pass `"dryRun": true` to get the same per-field diff without writing
+- Projects additionally accept `reviewInterval: { steps, unit }`. `unit` must be
+  `days`, `weeks`, `months`, or `years` — the plural matters, because OmniFocus
+  discards the whole assignment on any other spelling without an error. `steps`
+  must be at least 1; the app silently coerces `0` and fractions to `1`. The
+  interval cannot be cleared, and OmniFocus recomputes the next review date
+- A project's ID equals its root task's ID, so passing a project ID as `taskId`
+  is refused rather than silently editing the root task
+
+```bash
+bin/omnifocus-enhanced.cjs batch-edit-items --raw '{
+  "items": [
+    {"projectId": "<project-1>", "reviewInterval": {"steps": 1, "unit": "months"}},
+    {"taskId": "<id-1>", "dueDateShift": "+1w"}
+  ]
+}'
+```
 
 Use this instead of looping `edit-item`: one call preflights everything,
 executes atomically, verifies every write, and restores all previous values on

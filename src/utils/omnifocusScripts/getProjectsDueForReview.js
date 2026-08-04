@@ -62,7 +62,6 @@
             ? {
                 steps: project.reviewInterval.steps,
                 unit: String(project.reviewInterval.unit),
-                fixed: project.reviewInterval.fixed || false,
               }
             : null,
         });

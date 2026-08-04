@@ -85,11 +85,11 @@ test('getProjects OmniJS can omit review data and serialize intervals', () => {
   const reviewed = project('reviewed', {
     nextReviewDate: new Date('2026-08-01T10:00:00.000Z'),
     lastReviewDate: new Date('2026-07-25T10:00:00.000Z'),
-    reviewInterval: { steps: 1, unit: 'weeks', fixed: true },
+    reviewInterval: { steps: 1, unit: 'weeks' },
   });
 
   const included = runScript('getProjects.js', [reviewed], { includeReviewData: true });
-  assert.deepEqual(included.projects[0].reviewInterval, { steps: 1, unit: 'weeks', fixed: true });
+  assert.deepEqual(included.projects[0].reviewInterval, { steps: 1, unit: 'weeks' });
   assert.equal(included.projects[0].nextReviewDate, '2026-08-01T10:00:00.000Z');
 
   const omitted = runScript('getProjects.js', [reviewed], { includeReviewData: false });

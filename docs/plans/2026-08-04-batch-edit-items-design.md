@@ -185,6 +185,60 @@ A successful response returns a per-item, per-field diff of before and after
 values, so the assistant can state what changed instead of asserting an
 unverified success.
 
+## Projects
+
+Projects accept the same fields as tasks, plus `reviewInterval`. They are named
+by `projectId` instead of `taskId`; an item carries exactly one of the two.
+
+Supporting projects here rather than adding `newReviewInterval` to `edit_item`
+keeps the review interval on OmniJS. `edit_item` is AppleScript, so putting the
+field there would mean two execution channels inside one tool with no way to make
+them atomic. `batch_add_items` and `batch_remove_items` already accept both
+object kinds, so a batch tool spanning tasks and projects is the established
+shape.
+
+### Verified capabilities
+
+| Capability | Result |
+| --- | --- |
+| `Project.byIdentifier` | exists |
+| A project's ID and its root task's ID | **identical strings** |
+| `note`, `dueDate`, `deferDate`, `plannedDate`, `flagged`, `estimatedMinutes` on a project | all write and read back |
+| `project.addTag` / `project.tags` | work; `tags` is a `TagArray` |
+| `project.completed` | `false` when active, `true` when status is Done |
+| Edit a Done or Dropped project | **accepted silently**, same as tasks |
+| Assign a plain object to `reviewInterval` | **rejected**, requires a `Project.ReviewInterval` |
+| `new Project.ReviewInterval(...)` | **not a constructor** |
+| Mutate the value read from `reviewInterval` | **no effect** until assigned back |
+| Read, mutate, assign back | **works** |
+| Unit strings `days` `weeks` `months` `years` | stored |
+| Unit strings `day` `week` `DAYS` `fortnights` `""` | **silently void the whole write**, reverting to `1 weeks` |
+| `steps` of `0` or `1.5` | **silently coerced to 1** |
+| `steps` of `-2` | throws |
+| `reviewInterval = null` | rejected; the interval cannot be cleared |
+| Changing the interval | recomputes `nextReviewDate` |
+| `fixed` on the OmniJS instance | **absent**; AppleScript has it and defaults it to `true` |
+
+Because a project ID and its root task ID are the same string, `taskId` and
+`projectId` cannot be used interchangeably by accident without consequence: a
+project ID passed as `taskId` would resolve to the project's root task and edit
+that instead. Each kind is therefore resolved through its own lookup and the
+resolved object's kind is checked before anything is written.
+
+The unit and steps findings are the reason `reviewInterval` is validated against
+a closed set before any write. A misspelled unit does not fail — it silently
+discards the entire assignment and leaves a weekly interval, which would
+otherwise be reported as a successful change to something else entirely.
+
+`reviewInterval` takes `{ steps, unit }` with `steps` an integer of at least 1
+and `unit` one of the four plural forms. It cannot be cleared, matching the app.
+`fixed` is not accepted, because OmniJS cannot write it.
+
+A separate consequence of the `fixed` finding: `get_projects` and
+`get_projects_due_for_review` reported `fixed: false` for every project, reading
+a property that does not exist on the OmniJS value. The field is removed from
+their output rather than reported as a constant.
+
 ## Failure Handling
 
 - Empty `items`, more than 100 items, or a duplicate `taskId` fails the request.
@@ -205,7 +259,8 @@ the database as it was.
 - Changing task status, including dropping tasks. `batch_complete_tasks` owns
   completion; dropping in bulk has no established workflow yet.
 - Moving tasks between projects or parents. `batch_move_tasks` owns placement.
-- Project-only fields such as `sequential` or the review interval.
+- `sequential` on projects. It is a structural setting, not review or scheduling
+  metadata, and no observed workflow changes it in bulk.
 - Editing completed or dropped tasks.
 - Year shift units.
 - Creating tags that do not yet exist.

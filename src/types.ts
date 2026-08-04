@@ -88,10 +88,12 @@ export interface OmnifocusProject {
   // Review fields
   nextReviewDate: string | null;
   lastReviewDate: string | null;
+  // OmniJS exposes only steps and unit on Project.ReviewInterval. AppleScript
+  // has a third `fixed` field, but it is unreachable here, so it is not
+  // reported rather than reported as a constant false.
   reviewInterval: {
     steps: number;
     unit: "days" | "weeks" | "months" | "years";
-    fixed: boolean;
   } | null;
 }
 

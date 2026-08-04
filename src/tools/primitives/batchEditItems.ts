@@ -2,8 +2,18 @@ import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
 
 export type ShiftUnit = 'd' | 'w' | 'm';
 
+export const REVIEW_UNITS = ['days', 'weeks', 'months', 'years'] as const;
+export type ReviewUnit = (typeof REVIEW_UNITS)[number];
+
+export interface ReviewIntervalInput {
+  steps: number;
+  unit: ReviewUnit;
+}
+
 export interface BatchEditItem {
-  taskId: string;
+  /** Exactly one of taskId or projectId. A project's ID equals its root task's ID. */
+  taskId?: string;
+  projectId?: string;
   name?: string;
   note?: string;
   dueDate?: string | null;
@@ -17,6 +27,8 @@ export interface BatchEditItem {
   addTags?: string[];
   removeTags?: string[];
   replaceTags?: string[];
+  /** Projects only. Cannot be cleared; OmniFocus rejects a null interval. */
+  reviewInterval?: ReviewIntervalInput;
 }
 
 export interface BatchEditItemsParams {
@@ -43,7 +55,8 @@ export interface BatchEditItemsResult {
   restored?: boolean;
   dryRun?: boolean;
   items?: Array<{
-    taskId: string;
+    taskId?: string;
+    projectId?: string;
     name: string;
     changes: BatchEditChange[];
   }>;
@@ -66,6 +79,7 @@ const EDITABLE_KEYS = [
   'addTags',
   'removeTags',
   'replaceTags',
+  'reviewInterval',
 ] as const;
 
 const SHIFT_PATTERN = /^([+-])(\d+)([dwm])$/;
@@ -114,8 +128,34 @@ function validateItem(
 ): string | null {
   const position = `items[${index}]`;
 
-  if (!item.taskId || item.taskId.trim().length === 0) {
-    return `${position} requires a taskId`;
+  const hasTaskId = typeof item.taskId === 'string' && item.taskId.trim().length > 0;
+  const hasProjectId =
+    typeof item.projectId === 'string' && item.projectId.trim().length > 0;
+
+  if (hasTaskId && hasProjectId) {
+    return `${position} sets both taskId and projectId; each item names one object`;
+  }
+  if (!hasTaskId && !hasProjectId) {
+    return `${position} requires a taskId or a projectId`;
+  }
+
+  if ('reviewInterval' in item) {
+    if (!hasProjectId) {
+      return `${position} reviewInterval applies to projects; use projectId`;
+    }
+    const interval = item.reviewInterval;
+    if (!interval || typeof interval !== 'object') {
+      return `${position} reviewInterval must be an object with steps and unit`;
+    }
+    // OmniFocus silently coerces 0 and fractional steps to 1, and silently
+    // discards the whole assignment when the unit is not one of these four
+    // plural forms. Neither is detectable by reading the value back.
+    if (!Number.isInteger(interval.steps) || interval.steps < 1) {
+      return `${position} reviewInterval.steps must be an integer of at least 1`;
+    }
+    if (!REVIEW_UNITS.includes(interval.unit)) {
+      return `${position} reviewInterval.unit must be one of ${REVIEW_UNITS.join(', ')}`;
+    }
   }
 
   const touched = EDITABLE_KEYS.filter((key) => key in item);
@@ -198,14 +238,17 @@ export function validateParams(
       return { valid: false, error: itemError };
     }
 
-    if (seen.has(item.taskId)) {
-      // Two edits to one task would make the result depend on array order.
+    // A project's ID equals its root task's ID, so one set catches both an
+    // ID repeated under the same key and the same ID reached through both keys.
+    const id = item.taskId ?? item.projectId ?? '';
+    if (seen.has(id)) {
+      // Two edits to one object would make the result depend on array order.
       return {
         valid: false,
-        error: `duplicate taskId ${item.taskId}; list each task once`,
+        error: `duplicate id ${id}; list each task or project once`,
       };
     }
-    seen.add(item.taskId);
+    seen.add(id);
   }
 
   return { valid: true };

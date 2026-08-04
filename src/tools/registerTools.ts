@@ -123,7 +123,7 @@ const TOOLS = [
   {
     name: 'batch_edit_items',
     description:
-      "Edit fields and tags on up to 100 tasks by stable ID. Each item carries only the fields it changes; an omitted field is untouched and an explicit null clears it. Dates accept an absolute value or a signed shift such as \"+1w\". Preflights every task, refuses completed or dropped tasks, verifies every write, and restores all previous values on any failure. Use batch_move_tasks to change placement and batch_complete_tasks to change completion.",
+      "Edit fields and tags on up to 100 tasks or projects by stable ID. Each item names one object with taskId or projectId and carries only the fields it changes; an omitted field is untouched and an explicit null clears it. Dates accept an absolute value or a signed shift such as \"+1w\". Projects also accept reviewInterval to change review cadence. Preflights everything, refuses completed or dropped objects, verifies every write, and restores all previous values on any failure. Use batch_move_tasks to change placement and batch_complete_tasks to change completion.",
     tool: batchEditItemsTool,
     annotations: MUTATING_TOOL,
   },

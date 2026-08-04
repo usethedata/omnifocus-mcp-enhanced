@@ -71,3 +71,36 @@ and full restoration on any failure.
 - Live run against scratch tasks: apply an absolute date, a `+1w` shift, a tag
   add, and an `estimatedMinutes` clear; confirm read-back; confirm a completed
   task and an unknown tag are refused; delete every scratch task.
+
+## Project support (second pass)
+
+9. Extend the item shape to `taskId` XOR `projectId`. Resolve projects through
+   `Project.byIdentifier` and tasks through `Task.byIdentifier`, and reject a
+   project ID supplied as `taskId`: the two share one identifier, so it would
+   otherwise edit the project's root task.
+10. Refuse completed and dropped projects, mirroring tasks. `project.completed`
+    is true once the status is Done; Dropped is checked against
+    `Project.Status.Dropped`.
+11. Add `reviewInterval` (`{ steps, unit }`), projects only. Write it by reading
+    the interval, mutating the copy, and assigning it back — the value read is
+    detached, so mutation alone does nothing. Validate `steps` as an integer of
+    at least 1 and `unit` against the four plural forms, because OmniFocus
+    coerces bad steps to 1 and silently discards the whole assignment on any
+    other unit spelling.
+12. Snapshot, restore, and verify the interval alongside the other fields.
+13. Remove `fixed` from review interval output in `getProjects.js`,
+    `getProjectsDueForReview.js`, `markProjectsReviewed.js`, `src/types.ts`, and
+    the `markProjectsReviewed` result type. The property does not exist on the
+    OmniJS value, so it was always reported as a constant false.
+
+### Verification
+
+- Script tests covering interval writes, refused units and steps, refused
+  finished projects, a project ID passed as `taskId`, both IDs on one item,
+  mixed task-and-project batches, restoration, and dry run. The project fake's
+  `reviewInterval` getter returns a detached copy so the mutate-and-reassign
+  requirement is actually exercised.
+- Live run against scratch projects: interval persisted and `nextReviewDate`
+  recomputed, a singular unit refused with the interval left intact, zero steps
+  refused, a Done project refused, a project ID as `taskId` refused, a mixed
+  batch persisted, and dry run writing nothing.

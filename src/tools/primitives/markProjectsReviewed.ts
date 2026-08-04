@@ -6,7 +6,7 @@ export interface ReviewedProjectResult {
   status: string;
   lastReviewDate: string;
   nextReviewDate: string;
-  reviewInterval: { steps: number; unit: string; fixed: boolean };
+  reviewInterval: { steps: number; unit: string };
   verified: boolean;
 }
 

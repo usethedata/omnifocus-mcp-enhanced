@@ -73,7 +73,8 @@
             ? {
                 steps: project.reviewInterval.steps,
                 unit: String(project.reviewInterval.unit),
-                fixed: project.reviewInterval.fixed || false,
+                // OmniJS has no `fixed` on ReviewInterval; reporting it always
+                // produced a constant false, so it is omitted.
               }
             : null;
         }

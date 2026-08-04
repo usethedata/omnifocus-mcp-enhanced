@@ -142,3 +142,69 @@ test('batchEditItems reports an invalid request without touching OmniFocus', asy
   assert.equal(result.success, false);
   assert.equal(result.code, 'INVALID_EDIT');
 });
+
+test('validateParams requires exactly one of taskId and projectId', () => {
+  const both = validateParams({
+    items: [{ taskId: 't', projectId: 'p', flagged: true }],
+  });
+  assert.equal(both.valid, false);
+  assert.match(both.error || '', /both taskId and projectId/);
+
+  const neither = validateParams({ items: [{ flagged: true }] });
+  assert.equal(neither.valid, false);
+  assert.match(neither.error || '', /requires a taskId or a projectId/);
+});
+
+test('validateParams accepts a project item', () => {
+  const result = validateParams({
+    items: [{ projectId: 'p', reviewInterval: { steps: 2, unit: 'weeks' } }],
+  });
+  assert.equal(result.valid, true);
+});
+
+test('validateParams rejects reviewInterval on a task', () => {
+  const result = validateParams({
+    items: [{ taskId: 't', reviewInterval: { steps: 2, unit: 'weeks' } }],
+  });
+  assert.equal(result.valid, false);
+  assert.match(result.error || '', /applies to projects/);
+});
+
+test('validateParams rejects review units OmniFocus silently discards', () => {
+  // A singular or misspelled unit does not fail in the app: it discards the
+  // whole assignment and leaves a weekly interval.
+  for (const unit of ['week', 'day', 'fortnights', 'DAYS', '']) {
+    const result = validateParams({
+      items: [
+        {
+          projectId: 'p',
+          reviewInterval: { steps: 2, unit: unit as 'weeks' },
+        },
+      ],
+    });
+    assert.equal(result.valid, false, `expected "${unit}" to be rejected`);
+    assert.match(result.error || '', /reviewInterval\.unit/);
+  }
+});
+
+test('validateParams rejects review steps OmniFocus silently coerces', () => {
+  for (const steps of [0, -2, 1.5]) {
+    const result = validateParams({
+      items: [{ projectId: 'p', reviewInterval: { steps, unit: 'weeks' } }],
+    });
+    assert.equal(result.valid, false, `expected ${steps} to be rejected`);
+    assert.match(result.error || '', /reviewInterval\.steps/);
+  }
+});
+
+test('validateParams catches the same id reached through both keys', () => {
+  // A project's ID equals its root task's ID, so this is one object twice.
+  const result = validateParams({
+    items: [
+      { taskId: 'shared', flagged: true },
+      { projectId: 'shared', note: 'x' },
+    ],
+  });
+  assert.equal(result.valid, false);
+  assert.match(result.error || '', /duplicate id/);
+});

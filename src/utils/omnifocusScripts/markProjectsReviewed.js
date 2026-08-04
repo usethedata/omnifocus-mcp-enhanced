@@ -31,7 +31,6 @@
     return {
       steps: interval.steps,
       unit: String(interval.unit),
-      fixed: !!interval.fixed,
     };
   }
 
@@ -39,8 +38,7 @@
     const snapshot = intervalSnapshot(actual);
     return !!snapshot &&
       snapshot.steps === expected.steps &&
-      snapshot.unit === expected.unit &&
-      snapshot.fixed === expected.fixed;
+      snapshot.unit === expected.unit;
   }
 
   try {

@@ -47,19 +47,65 @@
     return task;
   }
 
-  function isDropped(task) {
+  function findProject(id) {
+    let project = null;
+    if (typeof Project !== "undefined" && Project.byIdentifier) {
+      project = Project.byIdentifier(id);
+    }
+    if (!project && typeof flattenedProjects !== "undefined") {
+      project = flattenedProjects.find((candidate) => primaryKey(candidate) === id) || null;
+    }
+    return project;
+  }
+
+  // A project's ID equals its root task's ID, so Task.byIdentifier resolves a
+  // project ID to that root task. Without this check, a project ID passed as
+  // taskId would silently edit the root task instead.
+  function isProjectRoot(id) {
+    return findProject(id) !== null;
+  }
+
+  function isDropped(object, kind) {
     try {
+      if (kind === "project") {
+        if (typeof Project !== "undefined" && Project.Status && Project.Status.Dropped !== undefined) {
+          return object.status === Project.Status.Dropped;
+        }
+        return String(object.status || "").indexOf("Dropped") >= 0;
+      }
       if (typeof Task !== "undefined" && Task.Status && Task.Status.Dropped !== undefined) {
-        return task.taskStatus === Task.Status.Dropped;
+        return object.taskStatus === Task.Status.Dropped;
       }
     } catch (_error) {
       // Fall through to the string form.
     }
     try {
-      return String(task.taskStatus || "").indexOf("Dropped") >= 0;
+      const raw = kind === "project" ? object.status : object.taskStatus;
+      return String(raw || "").indexOf("Dropped") >= 0;
     } catch (_error) {
       return false;
     }
+  }
+
+  const REVIEW_UNITS = ["days", "weeks", "months", "years"];
+
+  function reviewSnapshot(project) {
+    try {
+      const interval = project.reviewInterval;
+      if (!interval) return null;
+      return { steps: interval.steps, unit: String(interval.unit) };
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  // Verified write pattern: the value read back is a detached copy, so mutating
+  // it has no effect until it is assigned back to the project.
+  function writeReviewInterval(project, steps, unit) {
+    const interval = project.reviewInterval;
+    interval.steps = steps;
+    interval.unit = unit;
+    project.reviewInterval = interval;
   }
 
   function parseShift(raw) {
@@ -91,9 +137,9 @@
     return shifted;
   }
 
-  function readDate(task, field) {
+  function readDate(object, field) {
     try {
-      const value = task[field];
+      const value = object[field];
       return value ? new Date(value.getTime ? value.getTime() : value) : null;
     } catch (_error) {
       return null;
@@ -136,31 +182,63 @@
       const item = items[index];
       const position = `items[${index}]`;
 
-      if (!item.taskId) {
-        return fail("INVALID_EDIT", `${position} requires a taskId`);
-      }
-      if (seenIds[item.taskId]) {
-        return fail("INVALID_EDIT", `duplicate taskId ${item.taskId}; list each task once`);
-      }
-      seenIds[item.taskId] = true;
+      const hasTaskId = typeof item.taskId === "string" && item.taskId.length > 0;
+      const hasProjectId = typeof item.projectId === "string" && item.projectId.length > 0;
 
-      const task = findTask(item.taskId);
-      if (!task) {
-        return fail("INVALID_EDIT", `Task not found: ${item.taskId}`);
+      if (hasTaskId && hasProjectId) {
+        return fail("INVALID_EDIT", `${position} sets both taskId and projectId`);
+      }
+      if (!hasTaskId && !hasProjectId) {
+        return fail("INVALID_EDIT", `${position} requires a taskId or a projectId`);
       }
 
-      // Step 3: finished tasks accept writes silently, so refuse them here.
-      if (task.completed === true) {
+      const kind = hasProjectId ? "project" : "task";
+      const itemId = hasProjectId ? item.projectId : item.taskId;
+
+      if (seenIds[itemId]) {
+        return fail("INVALID_EDIT", `duplicate id ${itemId}; list each task or project once`);
+      }
+      seenIds[itemId] = true;
+
+      let object = null;
+      if (kind === "project") {
+        object = findProject(itemId);
+        if (!object) {
+          return fail("INVALID_EDIT", `Project not found: ${itemId}`);
+        }
+      } else {
+        // Reject a project ID supplied as taskId. The two share one identifier,
+        // so this would otherwise resolve to the project's root task.
+        if (isProjectRoot(itemId)) {
+          return fail(
+            "INVALID_EDIT",
+            `${itemId} is a project, not a task; use projectId for it`,
+          );
+        }
+        object = findTask(itemId);
+        if (!object) {
+          return fail("INVALID_EDIT", `Task not found: ${itemId}`);
+        }
+      }
+
+      const label = kind === "project" ? "Project" : "Task";
+
+      // Step 3: finished objects accept writes silently, so refuse them here.
+      if (object.completed === true) {
         return fail(
           "INVALID_EDIT",
-          `Task is completed and cannot be edited in a batch: ${task.name} (${item.taskId}). Use edit_item for a single deliberate change.`,
+          `${label} is completed and cannot be edited in a batch: ${object.name} (${itemId}). Use edit_item for a single deliberate change.`,
         );
       }
-      if (isDropped(task)) {
+      if (isDropped(object, kind)) {
         return fail(
           "INVALID_EDIT",
-          `Task is dropped and cannot be edited in a batch: ${task.name} (${item.taskId}). Use edit_item for a single deliberate change.`,
+          `${label} is dropped and cannot be edited in a batch: ${object.name} (${itemId}). Use edit_item for a single deliberate change.`,
         );
+      }
+
+      if (has(item, "reviewInterval") && kind !== "project") {
+        return fail("INVALID_EDIT", `${position} reviewInterval applies to projects only`);
       }
 
       const targets = {};
@@ -188,7 +266,7 @@
 
         let current = null;
         try {
-          current = task[field];
+          current = object[field];
         } catch (_error) {
           current = null;
         }
@@ -217,7 +295,7 @@
         }
         if (!hasAbsolute && !hasShift) continue;
 
-        const current = readDate(task, field);
+        const current = readDate(object, field);
         let resolved = null;
 
         if (hasAbsolute) {
@@ -245,7 +323,7 @@
           if (current === null) {
             return fail(
               "INVALID_EDIT",
-              `${position} cannot shift ${field}: task has no ${field} (${item.taskId})`,
+              `${position} cannot shift ${field}: task has no ${field} (${itemId})`,
             );
           }
           resolved = applyShift(current, shift);
@@ -262,15 +340,15 @@
 
       // Step 5: date order is checked against final values, so a shift that
       // collides with an untouched date is caught.
-      const finalDue = has(targets, "dueDate") ? targets.dueDate : readDate(task, "dueDate");
+      const finalDue = has(targets, "dueDate") ? targets.dueDate : readDate(object, "dueDate");
       const finalDefer = has(targets, "deferDate")
         ? targets.deferDate
-        : readDate(task, "deferDate");
+        : readDate(object, "deferDate");
       if (finalDue !== null && finalDefer !== null) {
         if (new Date(finalDefer).getTime() > new Date(finalDue).getTime()) {
           return fail(
             "INVALID_EDIT",
-            `${position} would leave deferDate (${isoOrNull(finalDefer)}) later than dueDate (${isoOrNull(finalDue)}) on ${item.taskId}`,
+            `${position} would leave deferDate (${isoOrNull(finalDefer)}) later than dueDate (${isoOrNull(finalDue)}) on ${itemId}`,
           );
         }
       }
@@ -319,7 +397,7 @@
           tagOp.remove = outcome.resolved;
         }
 
-        const before = tagNamesOf(task);
+        const before = tagNamesOf(object);
         snapshot.tags = before;
         targets.tags = tagOp;
 
@@ -349,6 +427,44 @@
         });
       }
 
+
+      // Review interval, projects only. Validated against a closed set because
+      // OmniFocus silently discards the whole assignment on a bad unit and
+      // silently coerces bad steps.
+      if (has(item, "reviewInterval")) {
+        const requested = item.reviewInterval;
+        if (!requested || typeof requested !== "object") {
+          return fail("INVALID_EDIT", `${position} reviewInterval must be an object`);
+        }
+        if (!Number.isInteger(requested.steps) || requested.steps < 1) {
+          return fail(
+            "INVALID_EDIT",
+            `${position} reviewInterval.steps must be an integer of at least 1`,
+          );
+        }
+        if (REVIEW_UNITS.indexOf(requested.unit) < 0) {
+          return fail(
+            "INVALID_EDIT",
+            `${position} reviewInterval.unit must be one of ${REVIEW_UNITS.join(", ")}`,
+          );
+        }
+
+        const before = reviewSnapshot(object);
+        if (!before) {
+          return fail(
+            "INVALID_EDIT",
+            `${position} project has no readable review interval (${itemId})`,
+          );
+        }
+        snapshot.reviewInterval = before;
+        targets.reviewInterval = { steps: requested.steps, unit: requested.unit };
+        changes.push({
+          field: "reviewInterval",
+          before: `${before.steps} ${before.unit}`,
+          after: `${requested.steps} ${requested.unit}`,
+        });
+      }
+
       if (changes.length === 0) {
         return fail(
           "INVALID_EDIT",
@@ -357,13 +473,18 @@
       }
 
       plan.push({
-        task,
-        taskId: item.taskId,
-        name: task.name,
+        object,
+        kind,
+        id: itemId,
+        name: object.name,
         targets,
         snapshot,
         changes,
       });
+    }
+
+    function identify(step) {
+      return step.kind === "project" ? { projectId: step.id } : { taskId: step.id };
     }
 
     if (dryRun) {
@@ -371,7 +492,7 @@
         success: true,
         dryRun: true,
         items: plan.map((step) => ({
-          taskId: step.taskId,
+          ...identify(step),
           name: step.name,
           changes: step.changes,
         })),
@@ -383,7 +504,7 @@
       for (const field of SCALAR_FIELDS) {
         if (!has(snapshot, field)) continue;
         try {
-          step.task[field] = snapshot[field];
+          step.object[field] = snapshot[field];
         } catch (_error) {
           // Continue restoring the remaining fields.
         }
@@ -391,14 +512,25 @@
       for (const field of DATE_FIELDS) {
         if (!has(snapshot, field)) continue;
         try {
-          step.task[field] = snapshot[field];
+          step.object[field] = snapshot[field];
         } catch (_error) {
           // Continue restoring the remaining fields.
         }
       }
       if (has(snapshot, "tags")) {
         try {
-          tagRestoreByNames(step.task, snapshot.tags);
+          tagRestoreByNames(step.object, snapshot.tags);
+        } catch (_error) {
+          // Continue.
+        }
+      }
+      if (has(snapshot, "reviewInterval")) {
+        try {
+          writeReviewInterval(
+            step.object,
+            snapshot.reviewInterval.steps,
+            snapshot.reviewInterval.unit,
+          );
         } catch (_error) {
           // Continue.
         }
@@ -411,28 +543,35 @@
       try {
         for (const field of SCALAR_FIELDS) {
           if (!has(step.targets, field)) continue;
-          step.task[field] = step.targets[field];
+          step.object[field] = step.targets[field];
         }
         for (const field of DATE_FIELDS) {
           if (!has(step.targets, field)) continue;
-          step.task[field] = step.targets[field];
+          step.object[field] = step.targets[field];
         }
         if (has(step.targets, "tags")) {
           const tagOp = step.targets.tags;
           if (tagOp.replace) {
             tagReplaceOnTask(
-              step.task,
+              step.object,
               tagOp.replace.map((entry) => entry.tag),
             );
           } else {
             // Remove first so an add on the same name wins.
             for (const entry of tagOp.remove) {
-              tagRemoveFromTask(step.task, entry.tag);
+              tagRemoveFromTask(step.object, entry.tag);
             }
             for (const entry of tagOp.add) {
-              tagApplyToTask(step.task, entry.tag);
+              tagApplyToTask(step.object, entry.tag);
             }
           }
+        }
+        if (has(step.targets, "reviewInterval")) {
+          writeReviewInterval(
+            step.object,
+            step.targets.reviewInterval.steps,
+            step.targets.reviewInterval.unit,
+          );
         }
       } catch (error) {
         for (let back = index; back >= 0; back -= 1) {
@@ -440,7 +579,7 @@
         }
         return fail(
           "EDIT_FAILED_RESTORED",
-          `Failed to edit task ${step.taskId}: ${String(error)}`,
+          `Failed to edit ${step.id}: ${String(error)}`,
           { restored: true },
         );
       }
@@ -453,7 +592,7 @@
         if (!has(step.targets, field)) continue;
         let actual = null;
         try {
-          actual = step.task[field];
+          actual = step.object[field];
         } catch (_error) {
           actual = null;
         }
@@ -461,25 +600,36 @@
         const expected = step.targets[field];
         if (field === "flagged") {
           if (Boolean(actual) !== Boolean(expected)) {
-            mismatches.push(`${step.taskId}: flagged`);
+            mismatches.push(`${step.id}: flagged`);
           }
           continue;
         }
         if (String(actual) !== String(expected)) {
-          mismatches.push(`${step.taskId}: ${field}`);
+          mismatches.push(`${step.id}: ${field}`);
         }
       }
       for (const field of DATE_FIELDS) {
         if (!has(step.targets, field)) continue;
-        if (!sameDate(readDate(step.task, field), step.targets[field])) {
-          mismatches.push(`${step.taskId}: ${field}`);
+        if (!sameDate(readDate(step.object, field), step.targets[field])) {
+          mismatches.push(`${step.id}: ${field}`);
         }
       }
       if (has(step.targets, "tags")) {
-        const actual = tagNamesOf(step.task).slice().sort().join("\u0000");
+        const actual = tagNamesOf(step.object).slice().sort().join("\u0000");
         const expected = step.targets.tagsExpected.slice().sort().join("\u0000");
         if (actual !== expected) {
-          mismatches.push(`${step.taskId}: tags`);
+          mismatches.push(`${step.id}: tags`);
+        }
+      }
+      if (has(step.targets, "reviewInterval")) {
+        const after = reviewSnapshot(step.object);
+        const expected = step.targets.reviewInterval;
+        if (
+          !after ||
+          after.steps !== expected.steps ||
+          after.unit !== expected.unit
+        ) {
+          mismatches.push(`${step.id}: reviewInterval`);
         }
       }
     }
@@ -499,8 +649,8 @@
       success: true,
       dryRun: false,
       items: plan.map((step) => ({
-        taskId: step.taskId,
-        name: step.task.name,
+        ...identify(step),
+        name: step.object.name,
         changes: step.changes,
       })),
     });

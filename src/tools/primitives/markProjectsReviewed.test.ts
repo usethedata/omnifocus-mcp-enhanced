@@ -15,7 +15,7 @@ interface FakeProject {
   task: { id: { primaryKey: string } };
   name: string;
   status: string;
-  reviewInterval: { steps: number; unit: string; fixed: boolean } | null;
+  reviewInterval: { steps: number; unit: string } | null;
   nextReviewDate: Date | null;
   lastReviewDate: Date | null;
 }
@@ -24,7 +24,7 @@ function project(id: string, options: Partial<FakeProject> & { failReviewOnce?: 
   let lastReviewDate: Date | null = options.lastReviewDate ?? new Date('2026-07-01T12:00:00.000Z');
   let reviewFailurePending = options.failReviewOnce === true;
   const interval = options.reviewInterval === undefined
-    ? { steps: 1, unit: 'weeks', fixed: false }
+    ? { steps: 1, unit: 'weeks' }
     : options.reviewInterval;
   const value: FakeProject = {
     id: { primaryKey: id },
