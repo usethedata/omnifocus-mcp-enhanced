@@ -628,3 +628,55 @@ manage_task_notifications {"action": "remove", "taskName": "Submit report", "ind
 manage_task_notifications {"action": "remove", "taskName": "Submit report", "removeAll": true}
 ```
 
+## 📤 Structured Output
+
+Eleven of the 26 tools return MCP `structuredContent` alongside their text, so a
+client can read stable IDs and per-item outcomes as data instead of parsing the
+rendered prose. The text is unchanged — both are returned, and a client that
+ignores structured output sees exactly what it saw before.
+
+| Tool | Structured payload |
+| --- | --- |
+| `filter_tasks` | `tasks`, `matchedCount`, `totalCount`, `hasMore`, `nextCursor` |
+| `get_tasks` | `source`, `count`, `tasks`, plus `groups` (forecast), `matchedTags` / `availableTags` (tag), `totalCount` (custom) |
+| `get_projects` | `view`, `count`, `projects` |
+| `manage_folders` | `action`, plus `folders`, `folder`, `folderId`, `name`, `changedProperties`, `deletedProjectCount`, `deletedTaskCount` |
+| `manage_tags` | `action`, plus `tags`, `tagId`, `name`, `changedProperties`, `affectedTaskCount`, `childTagCount` |
+| `count_tasks` | `total`, `byStatus` |
+| `batch_edit_items` | `dryRun`, `items[]` with the verified per-field diff |
+| `batch_complete_tasks` | `items[]` with status, completion date, and any generated repeating instance |
+| `batch_move_tasks` | `movedCount`, `unchangedCount`, `results[]` |
+| `batch_remove_items` | `removedCount`, `results[]` with cascade counts |
+| `batch_add_items` | `addedCount`, `failedCount`, `results[]` with a per-item `id` or `error` |
+
+A `filter_tasks` response, abbreviated:
+
+```json
+{
+  "content": [{ "type": "text", "text": "# 🔍 FILTERED TASKS\n\nFound 2 tasks..." }],
+  "structuredContent": {
+    "tasks": [
+      { "id": "k0a5vlqi2qo", "name": "Review the draft", "dueDate": "2026-09-15T09:00:00.000Z" }
+    ],
+    "matchedCount": 2,
+    "totalCount": 2,
+    "hasMore": false,
+    "nextCursor": null
+  }
+}
+```
+
+Two details worth knowing:
+
+- **Failures carry no structured payload.** A failed call returns
+  `isError: true` and text only. The MCP SDK exempts error results from output
+  validation, so no schema describes an error shape — read `isError` first.
+- **The mixed-operation tools key on `action`.** `manage_folders` and
+  `manage_tags` route five actions that return genuinely different things, so
+  `action` is the only field always present and the rest are optional. Read
+  `action`, then the fields that action produces.
+
+The remaining 15 tools still return text only. `dump_database` is an export
+format rather than a result you select from, `read_task_attachment` returns image
+content, and the rest are single-item writes whose text already states the ID
+they affected.

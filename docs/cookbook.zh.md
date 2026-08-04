@@ -499,3 +499,44 @@ get_tasks {
 }
 ```
 
+## 📤 结构化输出
+
+26 个工具中有 11 个在文本之外同时返回 MCP `structuredContent`，客户端可以直接把稳定 ID 和逐项结果当数据读，不必解析渲染出来的散文。文本本身没有变化——两者都返回，忽略结构化输出的客户端看到的和以前完全一样。
+
+| 工具 | 结构化字段 |
+| --- | --- |
+| `filter_tasks` | `tasks`、`matchedCount`、`totalCount`、`hasMore`、`nextCursor` |
+| `get_tasks` | `source`、`count`、`tasks`，另有 `groups`（forecast）、`matchedTags` / `availableTags`（tag）、`totalCount`（custom） |
+| `get_projects` | `view`、`count`、`projects` |
+| `manage_folders` | `action`，另有 `folders`、`folder`、`folderId`、`name`、`changedProperties`、`deletedProjectCount`、`deletedTaskCount` |
+| `manage_tags` | `action`，另有 `tags`、`tagId`、`name`、`changedProperties`、`affectedTaskCount`、`childTagCount` |
+| `count_tasks` | `total`、`byStatus` |
+| `batch_edit_items` | `dryRun`、`items[]`（含逐字段验证过的 diff） |
+| `batch_complete_tasks` | `items[]`（含状态、完成时间、重复任务新生成的实例） |
+| `batch_move_tasks` | `movedCount`、`unchangedCount`、`results[]` |
+| `batch_remove_items` | `removedCount`、`results[]`（含级联删除计数） |
+| `batch_add_items` | `addedCount`、`failedCount`、`results[]`（每项带 `id` 或 `error`） |
+
+一个 `filter_tasks` 的返回（节选）：
+
+```json
+{
+  "content": [{ "type": "text", "text": "# 🔍 FILTERED TASKS\n\nFound 2 tasks..." }],
+  "structuredContent": {
+    "tasks": [
+      { "id": "k0a5vlqi2qo", "name": "审阅草稿", "dueDate": "2026-09-15T09:00:00.000Z" }
+    ],
+    "matchedCount": 2,
+    "totalCount": 2,
+    "hasMore": false,
+    "nextCursor": null
+  }
+}
+```
+
+两个需要知道的细节：
+
+- **失败不带结构化内容。** 调用失败时返回 `isError: true` 和纯文本。MCP SDK 对错误结果豁免输出校验，所以没有任何 schema 描述错误形状——先读 `isError`。
+- **混合操作的工具以 `action` 为键。** `manage_folders` 和 `manage_tags` 路由五个 action，返回的东西确实不同，所以只有 `action` 一定存在，其余都是可选的。先读 `action`，再读该 action 产出的字段。
+
+其余 15 个工具仍然只返回文本。`dump_database` 是导出格式而不是供你挑选的结果，`read_task_attachment` 返回的是图片内容，剩下的是单条写入，其文本本身已经写明了受影响的 ID。

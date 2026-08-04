@@ -36,14 +36,15 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 
 如果 README 读到这里，你已经能感受到这个方向，那这段说明就有价值了。
 
-如果你想继续看这个项目接下来准备往哪里走，可以直接看[路线图](docs/roadmap/2026-02-25-batch-move-tasks-plan.zh.md)。
+如果你想继续看这个项目接下来准备往哪里走，可以直接看[路线图](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/roadmap/2026-02-25-batch-move-tasks-plan.zh.md)。
 
 ## 🆕 版本发布
 
-每个版本的完整说明见 [Releases 页面](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases)。当前工具面：**26 个工具、5 个 Prompts、3 个 Resources**。
+每个版本的完整说明见 [Releases 页面](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases)。当前工具面：**26 个工具（其中 11 个带结构化输出）、6 个 Prompts、3 个 Resources**。
 
 | 版本 | 日期 | 主要变化 |
 | --- | --- | --- |
+| **v2.3.0** | 2026-08-04 | 结构化输出：11 个工具在文本之外同时返回 MCP `structuredContent`，助手可以直接读到稳定 ID 和逐项结果，不必再解析散文。覆盖全部读取工具（`filter_tasks`、`get_tasks`、`get_projects`、`manage_folders`、`manage_tags`）、五个批量工具和 `count_tasks`。渲染文本保持不变 |
 | **v2.2.0** | 2026-08-04 | `batch_edit_items`——单次验证事务内批量修改最多 100 个任务或项目的字段、标签、相对日期偏移和项目复习周期，失败回滚。同时修复互斥标签组（此前从未真正移除过冲突的同组标签），并移除复习间隔输出中恒为 false 的 `fixed` 字段 |
 | **v2.1.1** | 2026-08-04 | 截止、推迟、计划日期保留具体时间，不再塌缩到零点 |
 | **v2.1.0** | 2026-07-31 | `manage_perspectives` 可读取、解释并编辑自定义透视的筛选规则；Skill CLI 提速 2.1 倍 |
@@ -97,7 +98,7 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 - **📊 智能查询** - 通过 ID、名称或复杂条件查找任务
 - **🔄 完整 CRUD 操作** - 创建、读取、更新、删除任务和项目
 - **🌳 项目塑形** - 把确认过的文本方案安全创建为经过读回验证的完整项目树
-- **💬 MCP Prompts** - 5 个引导式工作流（每日、每周、Inbox、项目规划、项目塑形）
+- **💬 MCP Prompts** - 6 个引导式工作流（每日、每周、Inbox、项目规划、项目塑形、任务健康扫描）
 - **🛠️ Agent Skill** - 本地 CLI 覆盖全部 26 个聚合工具，减少 AI 上下文占用
 - **📅 时间管理** - 截止日期、推迟日期、计划日期、估时和计划
 - **🏷️ 高级标签** - 基于标签的精确/模糊匹配过滤
@@ -284,8 +285,9 @@ npx -y mcporter@latest --config $(ls -t ~/.mcporter/generated/*.json | head -1) 
 | 🗂️ **Folder 与标签** | 嵌套层级，带环路保护和互斥标签组 | `manage_folders`、`manage_tags` |
 | 📋 **回顾流程** | 使用 OmniFocus 原生回顾元数据，批量标记并验证 | `get_projects`、`mark_projects_reviewed` |
 | 🖼️ **附件** | 先看元数据，需要时才打开图片 | `read_task_attachment` |
+| 📤 **结构化输出** | 11 个工具在文本旁同时返回 `structuredContent`，ID 与逐项结果以数据形式到达 | `filter_tasks`、`get_tasks`、`get_projects`、`manage_folders`、`manage_tags`、`count_tasks`、五个 `batch_*` |
 
-每一行对应的可运行示例都在 **[示例大全](docs/cookbook.zh.md)**。
+每一行对应的可运行示例都在 **[示例大全](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.zh.md)**。
 
 ## 🛠️ 完整工具参考——26 个工具
 
@@ -333,11 +335,11 @@ npx -y mcporter@latest --config $(ls -t ~/.mcporter/generated/*.json | head -1) 
 | **project_planning** | `project` | 把已有项目拆成有顺序、带估时的下一步       |
 | **project_shaping**  | –         | 把对话文本整理成经审阅、确认和验证的项目树 |
 
-接下来的 AI 任务助手计划：[docs/plans/2026-07-27-ai-task-assistant-roadmap-design.md](docs/plans/2026-07-27-ai-task-assistant-roadmap-design.md)
+接下来的 AI 任务助手计划：[docs/plans/2026-07-27-ai-task-assistant-roadmap-design.md](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/plans/2026-07-27-ai-task-assistant-roadmap-design.md)
 
 ## 🚀 快速开始示例
 
-这里只放三个有代表性的调用。完整的工具、参数和 CLI 语法都在 **[示例大全](docs/cookbook.zh.md)**。
+这里只放三个有代表性的调用。完整的工具、参数和 CLI 语法都在 **[示例大全](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.zh.md)**。
 
 ```bash
 # 创建任务，带项目、截止日期和计划日期
@@ -365,7 +367,7 @@ filter_tasks {
 }
 ```
 
-其余内容都在 **[示例大全](docs/cookbook.zh.md)**：任务移动、自定义透视、Folder 与标签管理、通知、重复规则、批量操作和附件检查。
+其余内容都在 **[示例大全](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.zh.md)**：任务移动、自定义透视、Folder 与标签管理、通知、重复规则、批量操作和附件检查。
 
 ## 🔧 配置
 
@@ -422,7 +424,7 @@ MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
 ## 🔗 链接
 
 - **NPM 包**: https://www.npmjs.com/package/omnifocus-mcp-enhanced
-- **示例大全**（全部 CLI/JSON 示例）: [docs/cookbook.zh.md](docs/cookbook.zh.md)
+- **示例大全**（全部 CLI/JSON 示例）: [docs/cookbook.zh.md](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.zh.md)
 - **GitHub 仓库**: https://github.com/jqlts1/omnifocus-mcp-enhanced
 - **OmniFocus**: https://www.omnigroup.com/omnifocus/
 - **模型上下文协议**: https://modelcontextprotocol.io/

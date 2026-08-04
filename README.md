@@ -40,14 +40,15 @@ Reorganize these tasks safely.
 
 If that feels natural, this MCP server is doing its job.
 
-Want to see where the project is heading next? See the [roadmap](docs/roadmap/2026-02-25-batch-move-tasks-plan.md).
+Want to see where the project is heading next? See the [roadmap](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/roadmap/2026-02-25-batch-move-tasks-plan.md).
 
 ## 🆕 Releases
 
-Full notes for every release are on the [Releases page](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases). Current surface: **26 tools, 5 prompts, 3 resources**.
+Full notes for every release are on the [Releases page](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases). Current surface: **26 tools (11 with structured output), 6 prompts, 3 resources**.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
+| **v2.3.0** | 2026-08-04 | Structured output: 11 tools now return MCP `structuredContent` alongside their text, so an assistant reads stable IDs and per-item outcomes as data instead of parsing prose. Covers every read (`filter_tasks`, `get_tasks`, `get_projects`, `manage_folders`, `manage_tags`), all five batch tools, and `count_tasks`. Rendered text is unchanged |
 | **v2.2.0** | 2026-08-04 | `batch_edit_items` — fields, tags, relative date shifts, and project review cadence across up to 100 tasks or projects in one verified, rollback-safe transaction. Also fixes exclusive tag groups, which never actually dropped a sibling tag, and drops the phantom `fixed` field from review interval output |
 | **v2.1.1** | 2026-08-04 | Due, defer, and planned dates keep their time of day instead of collapsing to midnight |
 | **v2.1.0** | 2026-07-31 | `manage_perspectives` reads, explains, and edits custom perspective filter rules; skill CLI 2.1x faster |
@@ -103,7 +104,7 @@ Full notes for every release are on the [Releases page](https://github.com/jqlts
 - **📁 Folder Management** - Full CRUD for folders with nested hierarchy, move/rename, and content inspection
 - **🏷️ Tag Management** - Full CRUD for tags with nesting, status control, and fuzzy search
 - **🔔 Task Notifications** - List, add, and remove reminders (absolute time or relative to due date)
-- **💬 MCP Prompts** - 5 guided workflows (daily, weekly, inbox processing, project planning, project shaping)
+- **💬 MCP Prompts** - 6 guided workflows (daily, weekly, inbox processing, project planning, project shaping, task health scan)
 - **📡 MCP Resources** - 3 live JSON snapshots (inbox, today, active projects)
 - **🛠️ Agent Skill** - One-command install of a local CLI covering all 26 consolidated tools, to keep AI context usage low
 - **📅 Time Management** - Due, defer, planned dates, estimates, and scheduling
@@ -305,8 +306,9 @@ Only open the image attachment if there is one.
 | 🗂️ **Folders & tags** | Nested hierarchies with cycle protection and exclusive tag groups | `manage_folders`, `manage_tags` |
 | 📋 **Review workflow** | Native OmniFocus review metadata, marked in verified batches | `get_projects`, `mark_projects_reviewed` |
 | 🖼️ **Attachments** | Inspect metadata first, open images only when needed | `read_task_attachment` |
+| 📤 **Structured output** | 11 tools return `structuredContent` next to their text, so IDs and per-item outcomes arrive as data | `filter_tasks`, `get_tasks`, `get_projects`, `manage_folders`, `manage_tags`, `count_tasks`, the five `batch_*` tools |
 
-Runnable examples for every row are in the **[Cookbook](docs/cookbook.md)**.
+Runnable examples for every row are in the **[Cookbook](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.md)**.
 
 ## 🛠️ Complete Tool Reference — 26 Tools
 
@@ -444,11 +446,11 @@ Inspect the real one with:
 npx -y mcporter@latest --config $(ls -t ~/.mcporter/generated/*.json | head -1) daemon status
 ```
 
-Batch move feature roadmap (future): [docs/roadmap/2026-02-25-batch-move-tasks-plan.md](docs/roadmap/2026-02-25-batch-move-tasks-plan.md)
+Batch move feature roadmap (future): [docs/roadmap/2026-02-25-batch-move-tasks-plan.md](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/roadmap/2026-02-25-batch-move-tasks-plan.md)
 
 ## 🚀 Quick Start Examples
 
-Three representative calls. Every tool, every argument, and the full CLI syntax live in the **[Cookbook](docs/cookbook.md)**.
+Three representative calls. Every tool, every argument, and the full CLI syntax live in the **[Cookbook](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.md)**.
 
 ```bash
 # Create a task with a project, due date, and planned date
@@ -476,7 +478,7 @@ filter_tasks {
 }
 ```
 
-The **[Cookbook](docs/cookbook.md)** covers the rest: task moves, custom perspectives, folder and tag management, notifications, repetition rules, batch operations, and attachment inspection.
+The **[Cookbook](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.md)** covers the rest: task moves, custom perspectives, folder and tag management, notifications, repetition rules, batch operations, and attachment inspection.
 
 ## 🔧 Configuration
 
@@ -540,7 +542,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - **NPM Package**: https://www.npmjs.com/package/omnifocus-mcp-enhanced
-- **Cookbook** (all CLI/JSON examples): [docs/cookbook.md](docs/cookbook.md)
+- **Cookbook** (all CLI/JSON examples): [docs/cookbook.md](https://github.com/jqlts1/omnifocus-mcp-enhanced/blob/main/docs/cookbook.md)
 - **GitHub Repository**: https://github.com/jqlts1/omnifocus-mcp-enhanced
 - **OmniFocus**: https://www.omnigroup.com/omnifocus/
 - **Model Context Protocol**: https://modelcontextprotocol.io/
