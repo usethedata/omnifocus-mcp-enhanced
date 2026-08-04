@@ -6,6 +6,8 @@ import { getTasksByTag } from '../primitives/getTasksByTag.js';
 import { getCustomPerspectiveTasks } from '../primitives/getCustomPerspectiveTasks.js';
 import { resolveCustomPerspectiveDisplayMode } from './getCustomPerspectiveTasks.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
+import { taskNodeSchema } from './sharedOutputSchemas.js';
+import type { TaskTreeNode } from '../primitives/taskTreeFormatter.js';
 
 const inputSchema = z
   .object({
@@ -153,6 +155,38 @@ export const schema = inputSchema.superRefine((args, ctx) => {
   }
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * `tasks` is present for every source so an assistant can pull IDs without
+ * branching on `source`. The source-specific fields are optional.
+ */
+export const outputSchema = z.object({
+  source: z.enum(['inbox', 'flagged', 'forecast', 'tag', 'custom']),
+  count: z.number().int().describe('How many tasks are in `tasks`'),
+  tasks: z
+    .array(taskNodeSchema)
+    .describe('The tasks the text describes, flattened across any grouping'),
+  totalCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('custom source: total the perspective reported'),
+  groups: z
+    .array(z.object({ date: z.string(), tasks: z.array(taskNodeSchema) }))
+    .optional()
+    .describe('forecast source: the same tasks kept grouped by date'),
+  matchedTags: z
+    .array(z.string())
+    .optional()
+    .describe('tag source: tag names the query resolved to'),
+  availableTags: z
+    .array(z.string())
+    .optional()
+    .describe('tag source: suggestions returned when nothing matched'),
+});
+
 interface GetTasksDependencies {
   getInboxTasks: typeof getInboxTasks;
   getFlaggedTasks: typeof getFlaggedTasks;
@@ -192,44 +226,61 @@ export function createHandler(dependencies: GetTasksDependencies) {
     try {
       const hideCompleted = args.hideCompleted !== false;
       const showSubtasks = args.showSubtasks === true;
-      let result: string;
+      let text: string;
+      let tasks: TaskTreeNode[] = [];
+      const extras: Record<string, unknown> = {};
 
       switch (args.source) {
-        case 'inbox':
-          result = await dependencies.getInboxTasks({
+        case 'inbox': {
+          const result = await dependencies.getInboxTasks({
             hideCompleted,
             showSubtasks,
             maxSubtaskDepth: args.maxSubtaskDepth,
           });
+          text = result.text;
+          tasks = result.tasks;
           break;
-        case 'flagged':
-          result = await dependencies.getFlaggedTasks({
+        }
+        case 'flagged': {
+          const result = await dependencies.getFlaggedTasks({
             hideCompleted,
             projectFilter: args.projectFilter,
             showSubtasks,
             maxSubtaskDepth: args.maxSubtaskDepth,
           });
+          text = result.text;
+          tasks = result.tasks;
           break;
-        case 'forecast':
-          result = await dependencies.getForecastTasks({
+        }
+        case 'forecast': {
+          const result = await dependencies.getForecastTasks({
             days: args.days ?? 7,
             hideCompleted,
             includeDeferredOnly: args.includeDeferredOnly ?? false,
             showSubtasks,
             maxSubtaskDepth: args.maxSubtaskDepth,
           });
+          text = result.text;
+          tasks = result.tasks;
+          extras.groups = result.groups;
           break;
-        case 'tag':
-          result = await dependencies.getTasksByTag({
+        }
+        case 'tag': {
+          const result = await dependencies.getTasksByTag({
             tagName: args.tagName!,
             hideCompleted,
             exactMatch: args.exactMatch ?? false,
             showSubtasks,
             maxSubtaskDepth: args.maxSubtaskDepth,
           });
+          text = result.text;
+          tasks = result.tasks;
+          extras.matchedTags = result.matchedTags;
+          extras.availableTags = result.availableTags;
           break;
-        case 'custom':
-          result = await dependencies.getCustomPerspectiveTasks({
+        }
+        case 'custom': {
+          const result = await dependencies.getCustomPerspectiveTasks({
             perspectiveName: args.perspectiveName!,
             hideCompleted,
             limit: args.limit ?? 1000,
@@ -237,10 +288,22 @@ export function createHandler(dependencies: GetTasksDependencies) {
             showHierarchy: args.showHierarchy ?? false,
             groupByProject: args.groupByProject !== false,
           });
+          text = result.text;
+          tasks = result.tasks;
+          extras.totalCount = result.totalCount;
           break;
+        }
       }
 
-      return { content: [{ type: 'text' as const, text: result }] };
+      return {
+        content: [{ type: 'text' as const, text }],
+        structuredContent: {
+          source: args.source,
+          count: tasks.length,
+          tasks,
+          ...extras,
+        },
+      };
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Unknown error occurred';

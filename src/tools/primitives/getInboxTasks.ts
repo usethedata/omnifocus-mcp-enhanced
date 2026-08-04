@@ -1,5 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
-import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskTreeNode } from './taskTreeFormatter.js';
+import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskReadResult, TaskTreeNode } from './taskTreeFormatter.js';
 
 export interface GetInboxTasksOptions {
   hideCompleted?: boolean;
@@ -7,7 +7,7 @@ export interface GetInboxTasksOptions {
   maxSubtaskDepth?: number;
 }
 
-export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise<string> {
+export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise<TaskReadResult> {
   const { hideCompleted = true, showSubtasks = false, maxSubtaskDepth } = options;
 
   try {
@@ -19,7 +19,7 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
     });
 
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], text: result };
     }
 
     // If result is an object, format it
@@ -31,6 +31,7 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
       }
 
       // Format the inbox tasks
+      let displayedTasks: TaskTreeNode[] = [];
       let output = `# INBOX TASKS\n\n`;
 
       if (data.tasks && Array.isArray(data.tasks)) {
@@ -39,7 +40,7 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
         } else {
           output += `📥 Found ${data.tasks.length} task${data.tasks.length === 1 ? '' : 's'} in inbox:\n\n`;
 
-          const displayedTasks = dedupeExpandedTopLevelTasks(data.tasks as TaskTreeNode[], showSubtasks);
+          displayedTasks = dedupeExpandedTopLevelTasks(data.tasks as TaskTreeNode[], showSubtasks);
           if (displayedTasks.length !== data.tasks.length) {
             output += `Displayed as ${displayedTasks.length} task tree${displayedTasks.length === 1 ? '' : 's'} to avoid duplicate subtasks.\n\n`;
           }
@@ -51,10 +52,10 @@ export async function getInboxTasks(options: GetInboxTasksOptions = {}): Promise
         output += 'No inbox data available\n';
       }
 
-      return output;
+      return { tasks: displayedTasks, text: output };
     }
 
-    return 'Unexpected result format from OmniFocus';
+    return { tasks: [], text: 'Unexpected result format from OmniFocus' };
   } catch (error) {
     console.error('Error in getInboxTasks:', error);
     throw new Error(`Failed to get inbox tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);

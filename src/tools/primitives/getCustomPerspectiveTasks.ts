@@ -5,6 +5,7 @@ import {
   PerspectiveProjectGroup,
   PerspectiveTaskNode
 } from './perspectiveTaskTree.js';
+import { TaskReadResult, TaskTreeNode } from './taskTreeFormatter.js';
 
 export interface GetCustomPerspectiveTasksOptions {
   perspectiveName: string;
@@ -16,7 +17,38 @@ export interface GetCustomPerspectiveTasksOptions {
   groupByProject?: boolean;
 }
 
-export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTasksOptions): Promise<string> {
+export interface GetCustomPerspectiveTasksResult extends TaskReadResult {
+  /** Total the perspective reported, which can exceed the rendered tasks. */
+  totalCount: number;
+}
+
+/**
+ * The perspective script serializes its own node type. Map it onto the shared
+ * task shape so every get_tasks source returns tasks that look the same.
+ */
+function toTaskTreeNode(node: PerspectiveTaskNode): TaskTreeNode {
+  return {
+    id: node.id,
+    name: node.name,
+    note: node.note,
+    flagged: node.flagged,
+    dueDate: node.dueDate,
+    deferDate: node.deferDate,
+    plannedDate: node.plannedDate,
+    estimatedMinutes: node.estimatedMinutes,
+    projectName: node.projectName,
+    parentId: node.parentId,
+    completed: node.completed,
+    dropped: node.dropped,
+    completionDate: node.completionDate,
+    creationDate: node.creationDate,
+    tags: node.tags.map((name) => ({ name })),
+    childrenCount: node.children.length,
+    children: node.children.map(toTaskTreeNode),
+  };
+}
+
+export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTasksOptions): Promise<GetCustomPerspectiveTasksResult> {
   const {
     perspectiveName,
     hideCompleted = true,
@@ -25,7 +57,7 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
   } = options;
 
   if (!perspectiveName) {
-    return '❌ **错误**: 透视名称不能为空';
+    return { tasks: [], totalCount: 0, text: '❌ **错误**: 透视名称不能为空' };
   }
 
   try {
@@ -44,22 +76,45 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
       inboxLabel: '收件箱'
     });
 
+    const totalCount = data.count || tree.flatTasks.length;
+    const tasks = tree.flatTasks.map(toTaskTreeNode);
+
     if (tree.flatTasks.length === 0) {
-      return `**透视任务：${perspectiveName}**\n\n暂无${hideCompleted ? '未完成' : ''}任务。`;
+      return {
+        tasks: [],
+        totalCount,
+        text: `**透视任务：${perspectiveName}**\n\n暂无${hideCompleted ? '未完成' : ''}任务。`,
+      };
     }
 
     if (displayMode === 'task_tree') {
-      return formatTaskTree(perspectiveName, tree.rootTasks, tree.flatTasks.length, data.count || tree.flatTasks.length);
+      return {
+        tasks,
+        totalCount,
+        text: formatTaskTree(perspectiveName, tree.rootTasks, tree.flatTasks.length, totalCount),
+      };
     }
 
     if (displayMode === 'flat') {
-      return formatFlatTasks(perspectiveName, tree.flatTasks, limit, data.count || tree.flatTasks.length);
+      return {
+        tasks,
+        totalCount,
+        text: formatFlatTasks(perspectiveName, tree.flatTasks, limit, totalCount),
+      };
     }
 
-    return formatProjectTree(perspectiveName, tree.projectGroups, tree.flatTasks.length, data.count || tree.flatTasks.length);
+    return {
+      tasks,
+      totalCount,
+      text: formatProjectTree(perspectiveName, tree.projectGroups, tree.flatTasks.length, totalCount),
+    };
   } catch (error) {
     console.error('Error in getCustomPerspectiveTasks:', error);
-    return `❌ **错误**: ${error instanceof Error ? error.message : String(error)}`;
+    return {
+      tasks: [],
+      totalCount: 0,
+      text: `❌ **错误**: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 

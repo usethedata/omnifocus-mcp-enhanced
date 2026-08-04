@@ -1,5 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
-import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskTreeNode } from './taskTreeFormatter.js';
+import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskReadResult, TaskTreeNode } from './taskTreeFormatter.js';
 
 export interface GetFlaggedTasksOptions {
   hideCompleted?: boolean;
@@ -8,7 +8,7 @@ export interface GetFlaggedTasksOptions {
   maxSubtaskDepth?: number;
 }
 
-export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Promise<string> {
+export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Promise<TaskReadResult> {
   const { hideCompleted = true, projectFilter, showSubtasks = false, maxSubtaskDepth } = options;
   
   try {
@@ -21,7 +21,7 @@ export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Pro
     });
     
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], text: result };
     }
     
     // If result is an object, format it
@@ -33,6 +33,7 @@ export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Pro
       }
       
       // Format the flagged tasks
+      let allDisplayedTasks: TaskTreeNode[] = [];
       let output = `# 🚩 FLAGGED TASKS\n\n`;
       
       if (projectFilter) {
@@ -52,6 +53,7 @@ export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Pro
           const tasksByProject = new Map<string, any[]>();
           
           const displayedTasks = dedupeExpandedTopLevelTasks(data.tasks as TaskTreeNode[], showSubtasks);
+          allDisplayedTasks = displayedTasks;
           if (displayedTasks.length !== data.tasks.length) {
             output += `Displayed as ${displayedTasks.length} task tree${displayedTasks.length === 1 ? '' : 's'} to avoid duplicate subtasks.\n\n`;
           }
@@ -79,10 +81,10 @@ export async function getFlaggedTasks(options: GetFlaggedTasksOptions = {}): Pro
         output += "No flagged tasks data available\n";
       }
       
-      return output;
+      return { tasks: allDisplayedTasks, text: output };
     }
     
-    return "Unexpected result format from OmniFocus";
+    return { tasks: [], text: 'Unexpected result format from OmniFocus' };
     
   } catch (error) {
     console.error("Error in getFlaggedTasks:", error);

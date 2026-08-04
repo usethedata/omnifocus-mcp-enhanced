@@ -108,6 +108,7 @@ test('registerTools forwards an output schema only for migrated tools', () => {
     'batch_remove_items',
     'count_tasks',
     'filter_tasks',
+    'get_tasks',
   ]);
 
   for (const call of calls) {

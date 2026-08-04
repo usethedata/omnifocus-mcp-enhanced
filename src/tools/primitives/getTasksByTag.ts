@@ -1,5 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
-import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskTreeNode } from './taskTreeFormatter.js';
+import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskReadResult, TaskTreeNode } from './taskTreeFormatter.js';
 
 export interface GetTasksByTagOptions {
   tagName: string;
@@ -9,7 +9,14 @@ export interface GetTasksByTagOptions {
   maxSubtaskDepth?: number;
 }
 
-export async function getTasksByTag(options: GetTasksByTagOptions): Promise<string> {
+export interface GetTasksByTagResult extends TaskReadResult {
+  /** Tag names the query actually resolved to. */
+  matchedTags: string[];
+  /** Suggestions returned when nothing matched. */
+  availableTags: string[];
+}
+
+export async function getTasksByTag(options: GetTasksByTagOptions): Promise<GetTasksByTagResult> {
   const { tagName, hideCompleted = true, exactMatch = false, showSubtasks = false, maxSubtaskDepth } = options;
   
   if (!tagName || tagName.trim() === '') {
@@ -27,7 +34,7 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
     });
     
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], matchedTags: [], availableTags: [], text: result };
     }
     
     // If result is an object, format it
@@ -39,6 +46,9 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
       }
       
       // Format the tasks by tag
+      let allDisplayedTasks: TaskTreeNode[] = [];
+      const matchedTags: string[] = Array.isArray(data.matchedTags) ? data.matchedTags : [];
+      const availableTags: string[] = Array.isArray(data.availableTags) ? data.availableTags : [];
       const searchType = exactMatch ? 'exact match' : 'partial match';
       let output = `# 🏷 TASKS WITH TAG: "${tagName}" (${searchType})\n\n`;
       
@@ -64,6 +74,7 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
           const tasksByProject = new Map<string, any[]>();
           
           const displayedTasks = dedupeExpandedTopLevelTasks(data.tasks as TaskTreeNode[], showSubtasks);
+          allDisplayedTasks = displayedTasks;
           if (displayedTasks.length !== data.tasks.length) {
             output += `Displayed as ${displayedTasks.length} task tree${displayedTasks.length === 1 ? '' : 's'} to avoid duplicate subtasks.\n\n`;
           }
@@ -94,10 +105,10 @@ export async function getTasksByTag(options: GetTasksByTagOptions): Promise<stri
         output += "No tasks data available\n";
       }
       
-      return output;
+      return { tasks: allDisplayedTasks, matchedTags, availableTags, text: output };
     }
     
-    return "Unexpected result format from OmniFocus";
+    return { tasks: [], matchedTags: [], availableTags: [], text: 'Unexpected result format from OmniFocus' };
     
   } catch (error) {
     console.error("Error in getTasksByTag:", error);

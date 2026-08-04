@@ -23,7 +23,9 @@ export const taskTagSchema = z
 
 /**
  * Mirrors TaskTreeNode in primitives/taskTreeFormatter.ts, which is recursive
- * through `children`.
+ * through `children`, and is a superset of it: the custom-perspective read
+ * serializes a different node type, so its completion fields appear here as
+ * optional rather than forcing `get_tasks` to return two task shapes.
  */
 export const taskNodeSchema: z.ZodType<TaskNodeShape> = z.lazy(() =>
   z.object({
@@ -42,6 +44,10 @@ export const taskNodeSchema: z.ZodType<TaskNodeShape> = z.lazy(() =>
     inInbox: z.boolean().optional(),
     isRepeating: z.boolean().optional(),
     tags: z.array(taskTagSchema).optional(),
+    completed: z.boolean().optional(),
+    dropped: z.boolean().optional(),
+    completionDate: z.string().nullable().optional(),
+    creationDate: z.string().nullable().optional(),
     childrenCount: z
       .number()
       .optional()
@@ -75,6 +81,10 @@ export interface TaskNodeShape {
     path?: string;
     ancestorIds?: string[];
   }>;
+  completed?: boolean;
+  dropped?: boolean;
+  completionDate?: string | null;
+  creationDate?: string | null;
   childrenCount?: number;
   children?: TaskNodeShape[];
   childrenTruncated?: boolean;

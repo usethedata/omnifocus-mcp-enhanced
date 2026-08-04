@@ -1,5 +1,5 @@
 import { executeOmniFocusScript } from '../../utils/scriptExecution.js';
-import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskTreeNode } from './taskTreeFormatter.js';
+import { dedupeExpandedTopLevelTasks, formatTaskTreeNode, TaskReadResult, TaskTreeNode } from './taskTreeFormatter.js';
 
 export interface GetForecastTasksOptions {
   days?: number;
@@ -38,7 +38,17 @@ export function getForecastDateCategory(taskDate: Date, now = new Date()): 'over
   return 'future';
 }
 
-export async function getForecastTasks(options: GetForecastTasksOptions = {}): Promise<string> {
+export interface ForecastGroup {
+  date: string;
+  tasks: TaskTreeNode[];
+}
+
+export interface GetForecastTasksResult extends TaskReadResult {
+  /** The same tasks the text shows, kept grouped by their forecast date. */
+  groups: ForecastGroup[];
+}
+
+export async function getForecastTasks(options: GetForecastTasksOptions = {}): Promise<GetForecastTasksResult> {
   const { days = 7, hideCompleted = true, includeDeferredOnly = false, showSubtasks = false, maxSubtaskDepth } = options;
   
   try {
@@ -52,7 +62,7 @@ export async function getForecastTasks(options: GetForecastTasksOptions = {}): P
     });
     
     if (typeof result === 'string') {
-      return result;
+      return { tasks: [], groups: [], text: result };
     }
     
     // If result is an object, format it
@@ -64,6 +74,7 @@ export async function getForecastTasks(options: GetForecastTasksOptions = {}): P
       }
       
       // Format the forecast tasks
+      const groups: ForecastGroup[] = [];
       let output = `# 📅 FORECAST - Next ${days} days\n\n`;
       
       if (data.tasksByDate && typeof data.tasksByDate === 'object') {
@@ -80,6 +91,7 @@ export async function getForecastTasks(options: GetForecastTasksOptions = {}): P
             const tasks = (data.tasksByDate[dateStr] as TaskTreeNode[])
               .filter(task => displayedTaskIds.has(task.id));
             if (!tasks || tasks.length === 0) return;
+            groups.push({ date: dateStr, tasks });
             
             const taskDate = parseLocalDateKey(dateStr);
             const category = getForecastDateCategory(taskDate);
@@ -114,10 +126,14 @@ export async function getForecastTasks(options: GetForecastTasksOptions = {}): P
         output += "No forecast data available\n";
       }
       
-      return output;
+      return {
+        tasks: groups.flatMap((group) => group.tasks),
+        groups,
+        text: output,
+      };
     }
     
-    return "Unexpected result format from OmniFocus";
+    return { tasks: [], groups: [], text: 'Unexpected result format from OmniFocus' };
     
   } catch (error) {
     console.error("Error in getForecastTasks:", error);

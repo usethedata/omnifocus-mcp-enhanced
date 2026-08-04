@@ -22,9 +22,26 @@ export interface TaskTreeNode {
   inInbox?: boolean;
   isRepeating?: boolean;
   tags?: TaskTag[];
+  // Present only on the custom-perspective read, which serializes its own node
+  // type. Optional here so every task-shaped read returns one shape.
+  completed?: boolean;
+  dropped?: boolean;
+  completionDate?: string | null;
+  creationDate?: string | null;
   childrenCount?: number;
   children?: TaskTreeNode[];
   childrenTruncated?: boolean;
+}
+
+/**
+ * What a task-shaped read returns: the tasks the rendered text describes, plus
+ * that text. The structured half exists so callers do not have to recover IDs by
+ * parsing prose; the text half is byte-identical to what these reads always
+ * returned.
+ */
+export interface TaskReadResult {
+  tasks: TaskTreeNode[];
+  text: string;
 }
 
 export interface TaskTreeFormatOptions {

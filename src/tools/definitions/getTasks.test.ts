@@ -4,6 +4,10 @@ import { createHandler, schema } from './getTasks.js';
 
 const extra = undefined as never;
 
+function stubTask(id: string) {
+  return { id, name: `Task ${id}` };
+}
+
 function stubDependencies() {
   const calls: Array<{ method: string; args: unknown }> = [];
   return {
@@ -11,23 +15,36 @@ function stubDependencies() {
     dependencies: {
       getInboxTasks: async (args: unknown) => {
         calls.push({ method: 'inbox', args });
-        return 'inbox result';
+        return { tasks: [stubTask('inbox-1')], text: 'inbox result' };
       },
       getFlaggedTasks: async (args: unknown) => {
         calls.push({ method: 'flagged', args });
-        return 'flagged result';
+        return { tasks: [stubTask('flagged-1')], text: 'flagged result' };
       },
       getForecastTasks: async (args: unknown) => {
         calls.push({ method: 'forecast', args });
-        return 'forecast result';
+        return {
+          tasks: [stubTask('forecast-1')],
+          groups: [{ date: '2026-08-04', tasks: [stubTask('forecast-1')] }],
+          text: 'forecast result',
+        };
       },
       getTasksByTag: async (args: unknown) => {
         calls.push({ method: 'tag', args });
-        return 'tag result';
+        return {
+          tasks: [stubTask('tag-1')],
+          matchedTags: ['Work'],
+          availableTags: [],
+          text: 'tag result',
+        };
       },
       getCustomPerspectiveTasks: async (args: unknown) => {
         calls.push({ method: 'custom', args });
-        return 'custom result';
+        return {
+          tasks: [stubTask('custom-1')],
+          totalCount: 1,
+          text: 'custom result',
+        };
       },
     },
   };

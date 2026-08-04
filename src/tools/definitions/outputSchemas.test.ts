@@ -8,6 +8,7 @@ import * as batchMoveTasks from './batchMoveTasks.js';
 import * as batchRemoveItems from './batchRemoveItems.js';
 import * as countTasks from './countTasks.js';
 import * as filterTasks from './filterTasks.js';
+import * as getTasks from './getTasks.js';
 
 /**
  * The SDK throws when a tool declaring an output schema returns success without
@@ -23,6 +24,7 @@ const MIGRATED = [
   { name: 'batch_move_tasks', module: batchMoveTasks },
   { name: 'batch_remove_items', module: batchRemoveItems },
   { name: 'filter_tasks', module: filterTasks },
+  { name: 'get_tasks', module: getTasks },
 ];
 
 test('every migrated tool exports an object output schema', () => {
@@ -217,4 +219,67 @@ test('filter_tasks output schema accepts a task carrying only id and name', () =
     nextCursor: null,
   });
   assert.equal(parsed.tasks[0].name, 'Bare');
+});
+
+test('get_tasks output schema accepts every source', () => {
+  const base = { tasks: [{ id: 't', name: 'T' }], count: 1 };
+
+  assert.equal(
+    getTasks.outputSchema.parse({ ...base, source: 'inbox' }).source,
+    'inbox',
+  );
+  assert.equal(
+    getTasks.outputSchema.parse({ ...base, source: 'flagged' }).source,
+    'flagged',
+  );
+
+  const forecast = getTasks.outputSchema.parse({
+    ...base,
+    source: 'forecast',
+    groups: [{ date: '2026-08-04', tasks: [{ id: 't', name: 'T' }] }],
+  });
+  assert.equal(forecast.groups?.[0].date, '2026-08-04');
+
+  const tag = getTasks.outputSchema.parse({
+    ...base,
+    source: 'tag',
+    matchedTags: ['Work'],
+    availableTags: ['Home'],
+  });
+  assert.deepEqual(tag.matchedTags, ['Work']);
+
+  const custom = getTasks.outputSchema.parse({
+    ...base,
+    source: 'custom',
+    totalCount: 12,
+  });
+  assert.equal(custom.totalCount, 12);
+});
+
+test('get_tasks output schema rejects an unknown source', () => {
+  assert.throws(() =>
+    getTasks.outputSchema.parse({ source: 'archive', count: 0, tasks: [] }),
+  );
+});
+
+test('get_tasks output schema accepts a perspective task carrying completion fields', () => {
+  // The custom-perspective read serializes its own node type; those fields are
+  // optional on the shared task schema so one shape covers every source.
+  const parsed = getTasks.outputSchema.parse({
+    source: 'custom',
+    count: 1,
+    totalCount: 1,
+    tasks: [
+      {
+        id: 't',
+        name: 'Done thing',
+        completed: true,
+        dropped: false,
+        completionDate: '2026-08-01T09:00:00.000Z',
+        creationDate: '2026-07-01T09:00:00.000Z',
+        tags: [{ name: 'Work' }],
+      },
+    ],
+  });
+  assert.equal(parsed.tasks[0].completed, true);
 });
