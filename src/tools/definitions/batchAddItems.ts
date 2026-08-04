@@ -81,6 +81,32 @@ export const schema = z.object({
     .describe('Array of items (tasks or projects) to add'),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * Unlike the other batch tools this one reports partial success, so each entry
+ * carries its own `success` flag and either an `id` or an `error`.
+ */
+export const outputSchema = z.object({
+  addedCount: z.number().int(),
+  failedCount: z.number().int(),
+  results: z
+    .array(
+      z.object({
+        type: z.enum(['task', 'project']),
+        name: z.string(),
+        success: z.boolean(),
+        id: z
+          .string()
+          .nullable()
+          .describe('Stable ID of the created object, null when it failed'),
+        error: z.string().nullable(),
+      }),
+    )
+    .describe('One entry per requested item, in request order'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -121,6 +147,17 @@ export async function handler(
             text: `${message}\n\n${details}`,
           },
         ],
+        structuredContent: {
+          addedCount: successCount,
+          failedCount: failureCount,
+          results: result.results.map((item, index) => ({
+            type: args.items[index].type,
+            name: args.items[index].name,
+            success: item.success === true,
+            id: item.id ?? null,
+            error: item.error ?? null,
+          })),
+        },
       };
     } else {
       // Batch operation failed completely

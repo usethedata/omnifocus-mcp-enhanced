@@ -54,6 +54,33 @@ export const schema = z
   })
   .strict();
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  movedCount: z.number().int().describe('Tasks whose location actually changed'),
+  unchangedCount: z
+    .number()
+    .int()
+    .describe('Tasks already at the requested destination'),
+  results: z
+    .array(
+      z.object({
+        taskId: z.string(),
+        taskName: z.string(),
+        destination: z.object({
+          kind: z.enum(['project', 'parent', 'inbox']),
+          id: z.string().nullable(),
+          name: z.string(),
+        }),
+        verified: z.boolean(),
+        changed: z.boolean(),
+      }),
+    )
+    .describe('One verified entry per requested move'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -86,6 +113,11 @@ export async function handler(
       content: [
         { type: 'text' as const, text: `${summary}.\n\n${lines.join('\n')}` },
       ],
+      structuredContent: {
+        movedCount: result.movedCount ?? 0,
+        unchangedCount: result.unchangedCount ?? 0,
+        results: result.results,
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

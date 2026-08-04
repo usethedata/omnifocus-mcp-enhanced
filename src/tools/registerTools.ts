@@ -59,6 +59,13 @@ export const MUTATING_TOOL: ToolAnnotations = {
 interface ToolModule {
   schema: AnySchema;
   inputShape?: ZodRawShapeCompat;
+  /**
+   * Optional. Declaring it commits every success path to returning matching
+   * `structuredContent`: the SDK throws when a tool with an output schema
+   * returns none, and validates the payload when it does. Results marked
+   * `isError` are exempt. Tools that omit it are registered unchanged.
+   */
+  outputSchema?: AnySchema;
   handler: ToolCallback<AnySchema>;
 }
 
@@ -256,6 +263,9 @@ export function registerTools(server: McpServer): void {
         description,
         inputSchema: tool.inputShape ?? tool.schema,
         annotations,
+        // Omit the key entirely when absent: passing `undefined` would still
+        // register an output schema on some SDK paths.
+        ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
       },
       tool.handler,
     );

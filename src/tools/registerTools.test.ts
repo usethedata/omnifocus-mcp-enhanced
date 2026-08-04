@@ -12,6 +12,7 @@ interface RegisteredToolCall {
     annotations?: ToolAnnotations;
     description?: string;
     inputSchema?: ZodTypeAny | Record<string, ZodTypeAny>;
+    outputSchema?: ZodTypeAny;
   };
 }
 
@@ -87,4 +88,33 @@ test('registerTools marks local reads and destructive writes accurately', () => 
     calls.every((call) => call.config.annotations?.openWorldHint === false),
     true,
   );
+});
+
+// The SDK throws when a tool declaring an output schema returns success without
+// structured content, so the key must never appear on a tool that does not
+// build one. Absent means absent, not `undefined`.
+test('registerTools forwards an output schema only for migrated tools', () => {
+  const calls = captureTools();
+  const withSchema = calls
+    .filter((call) => 'outputSchema' in call.config)
+    .map((call) => call.name)
+    .sort();
+
+  assert.deepEqual(withSchema, [
+    'batch_add_items',
+    'batch_complete_tasks',
+    'batch_edit_items',
+    'batch_move_tasks',
+    'batch_remove_items',
+    'count_tasks',
+  ]);
+
+  for (const call of calls) {
+    if (!withSchema.includes(call.name)) continue;
+    assert.equal(
+      typeof call.config.outputSchema?.parse,
+      'function',
+      `${call.name} must forward a Zod output schema`,
+    );
+  }
 });

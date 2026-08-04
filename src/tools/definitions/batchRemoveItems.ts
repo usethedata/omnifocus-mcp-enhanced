@@ -38,6 +38,28 @@ export const schema = z.object({
     ),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  removedCount: z.number().int().describe('Items verified absent afterwards'),
+  results: z
+    .array(
+      z.object({
+        id: z.string(),
+        itemType: z.enum(['task', 'project']),
+        name: z.string(),
+        cascadeCount: z
+          .number()
+          .int()
+          .describe('Contained items deleted along with this one'),
+        verified: z.boolean(),
+      }),
+    )
+    .describe('One verified entry per removed item'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   _extra: ToolHandlerExtra,
@@ -73,6 +95,10 @@ export async function handler(
           text: `✅ Removed and verified ${result.removedCount} items.\n\n${details}`,
         },
       ],
+      structuredContent: {
+        removedCount: result.removedCount ?? 0,
+        results: result.results,
+      },
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

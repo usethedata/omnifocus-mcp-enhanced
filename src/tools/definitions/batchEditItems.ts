@@ -174,6 +174,37 @@ export const schema = z
   })
   .strict();
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  dryRun: z
+    .boolean()
+    .describe('True when nothing was written and the diff is a preview'),
+  items: z
+    .array(
+      z.object({
+        taskId: z.string().optional().describe('Set when the item was a task'),
+        projectId: z
+          .string()
+          .optional()
+          .describe('Set when the item was a project'),
+        name: z.string().describe('The object name after the edit'),
+        changes: z
+          .array(
+            z.object({
+              field: z.string(),
+              before: z.string().nullable(),
+              after: z.string().nullable(),
+            }),
+          )
+          .describe('Verified per-field before and after values'),
+      }),
+    )
+    .describe('One entry per edited object, in request order'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -221,5 +252,9 @@ export async function handler(
         text: `${heading}\n\n${details}`,
       },
     ],
+    structuredContent: {
+      dryRun: result.dryRun === true,
+      items: result.items ?? [],
+    },
   };
 }

@@ -81,6 +81,17 @@ export const schema = z.object({
     ),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  total: z.number().int().describe('How many tasks matched the filters'),
+  byStatus: z
+    .record(z.string(), z.number().int())
+    .describe('Matching task count per OmniFocus task status'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   _extra: ToolHandlerExtra,
@@ -105,6 +116,10 @@ export async function handler(
           text: `# Task Count\n\n**Total: ${result.total}**\n\nBy status:\n${breakdown}`,
         },
       ],
+      structuredContent: {
+        total: result.total,
+        byStatus: result.byStatus,
+      },
     };
   } catch (err: unknown) {
     const error = err as Error;

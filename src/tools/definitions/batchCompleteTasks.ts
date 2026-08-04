@@ -33,6 +33,30 @@ export const schema = z
   })
   .strict();
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ */
+export const outputSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        taskId: z.string(),
+        status: z
+          .enum(['completed', 'incompleted', 'unchanged'])
+          .describe('unchanged means the task already had the requested state'),
+        completionDate: z.string().nullable().optional(),
+        generatedTaskId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe('New instance created by completing a repeating task'),
+        nextOccurrence: z.string().nullable().optional(),
+      }),
+    )
+    .describe('One verified entry per requested task'),
+});
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -94,5 +118,6 @@ export async function handler(
         text: `${summary}\n\n${details}`,
       },
     ],
+    structuredContent: { items: result.items ?? [] },
   };
 }
