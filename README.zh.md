@@ -38,48 +38,46 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 
 如果你想继续看这个项目接下来准备往哪里走，可以直接看[路线图](docs/roadmap/2026-02-25-batch-move-tasks-plan.zh.md)。
 
-## 🆕 最新版本
+## 🆕 版本发布
 
-- **v2.1.1** - 截止、推迟和计划日期现在会保留具体时间。`appleScriptDateCode` 此前把时、分、秒硬编码为 0，因此经由 `add_omnifocus_task`、`add_project` 和 `edit_item` 写入的每个日期都会塌缩到本地零点——尽管这些工具的 schema 明确声明接受完整 ISO 日期。而走 JXA 的 `create_project_from_outline` 一直保留时间，两条写入路径的行为并不一致。现在时间直接从 ISO 字符串中读取，与年月日的既有读法完全相同：按字面 wall-clock 取值，不做任何时区换算，因此偏移量或 `Z` 后缀会被忽略，日期也永远不会和与之配对的时间脱节。仅含日期的输入仍然解析为零点，既有调用方不受影响。感谢 [@danilicari](https://github.com/danilicari)（[#40](https://github.com/jqlts1/omnifocus-mcp-enhanced/pull/40)）。
+每个版本的完整说明见 [Releases 页面](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases)。当前工具面：**26 个工具、5 个 Prompts、3 个 Resources**。
 
-  本次构建同时包含 v2.1.0 条目中描述的空格路径安装器修复——那部分改动是在 v2.1.0 发布到 npm 之后才落地的。
+| 版本 | 日期 | 主要变化 |
+| --- | --- | --- |
+| **v2.2.0** | 2026-08-04 | `batch_edit_items`——单次验证事务内批量修改最多 100 个任务的字段、标签和相对日期偏移，失败回滚。同时修复互斥标签组：此前从未真正移除过冲突的同组标签 |
+| **v2.1.1** | 2026-08-04 | 截止、推迟、计划日期保留具体时间，不再塌缩到零点 |
+| **v2.1.0** | 2026-07-31 | `manage_perspectives` 可读取、解释并编辑自定义透视的筛选规则；Skill CLI 提速 2.1 倍 |
+| **v2.0.0** | 2026-07-31 | **破坏性变更：** 41 个工具收敛为 25 个（`get_tasks`、`get_projects`、`manage_*`），旧工具名直接移除 |
+| **v1.21.0** | 2026-07-29 | `batch_complete_tasks`——单次验证事务最多完成 100 个任务，失败回滚 |
+| **v1.20.0** | 2026-07-29 | 重复规则处处可读可验证，创建时即可传入 `repetition` |
+| **v1.19.0** | 2026-07-28 | `create_project_from_outline` 把确认过的方案一次建成完整项目树 |
+| **v1.18.0** | 2026-07-28 | 可靠性：MCP SDK 1.30.0、Resource 快照有界、重建 `batch_remove_items` |
+| **v1.17.1** | 2026-07-27 | 迁移到现代 MCP 注册 API，运行时基线提到 Node.js 22，npm 包 2.27 MB → 117 KB |
+| **v1.17.0** | 2026-07-27 | `filter_tasks` 无状态游标分页 |
+| **v1.16.0** | 2026-07-27 | `daily_review` 改为先精确计数，输出容量与截止风险 |
+| **v1.15.0** | 2026-07-27 | `mark_projects_reviewed` 补齐每周回顾闭环 |
+| **v1.14.0** | 2026-07-27 | `batch_move_tasks` 提供完整预检的安全 Inbox 整理 |
 
-- **v2.1.0** - 自定义透视规则管理：新增 `manage_perspectives`，可读取、解释并编辑自定义透视背后的筛选规则，取代 `list_custom_perspectives`。规则以基于名称的可读文档呈现，而不是裸的 primary key；所有编辑都是原地写入，透视的 identifier 永不改变。规则词汇表不是照抄 Omni 文档，而是逐条在运行中的 App 上实测得出——文档既不完整也有错误：`actionHasPlannedDate` 未被文档记载，文档中的 `changed` 日期字段实际被筛选引擎忽略，二进制里存在的整个 `actionHasDate*` 家族是死代码。OmniFocus 写入规则时不做任何校验——非法规则会被原样存储，然后让透视静默匹配全部条目——因此服务端在写入前校验每条规则，原样保留自己不认识的规则，拒绝未知或有歧义的标签与项目名，失败时回滚，并强制执行 OmniFocus 自身不会触发的界面刷新。创建和删除透视仍不在范围内：OmniFocus 没有提供对应的自动化接口。当前仍为 25 个工具、5 个 Prompts 和 3 个 Resources。
+<details>
+<summary><b>更早的版本</b>（v1.13.1 及以前）</summary>
 
-  Skill 安装器同时修掉了一直在漏的延迟。mcporter 只有在配置条目明确要求时才会让 MCP server 进程保持存活，而它内置的默认名单只覆盖少数几个浏览器自动化 server，因此此前每次 CLI 调用都要重新解析 `npx -y` 并冷启一个 server。安装器现在以 `lifecycle: "keep-alive"` 注册 server，并断言该设置确实进入了生成的 bundle——交错 A/B 实测每条命令快 2.1 倍（中位数 12.9s → 6.1s）。注意 `mcporter generate-cli --from <bundle>` 的回放元数据会丢掉 `lifecycle`，用这条路径刷新 CLI 会静默还原成慢速状态；`install-skill` 是唯一受支持的刷新方式。生成的 CLI 还固定使用 `--runtime node`，否则 mcporter 会根据生成时 `PATH` 上恰好存在什么来选运行时，产出 `#!/usr/bin/env bun` 的 shebang——而在 `PATH` 更窄的 shell 里它根本无法 exec。新增测试断言安装器的校验清单与 server 实际注册的工具完全一致，因此重命名工具再也不会发布出一个在正确安装的包上直接失败的安装器。
+| 版本 | 日期 | 主要变化 |
+| --- | --- | --- |
+| **v1.13.1** | 2026-07-26 | 服务端版本号改为从 `package.json` 读取，消除版本漂移 |
+| **v1.13.0** | 2026-07-26 | 读取接口支持任务树：子任务计数与 `showSubtasks` / `maxSubtaskDepth` |
+| **v1.12.0** | 2026-07-26 | `filter_tasks` / `count_tasks` 重建在统一 OmniJS 谓词上，新增 `get_projects` |
+| **v1.11.1** | 2026-07-26 | `install-skill` 默认装到当前项目，`--global` 可切回全局 |
+| **v1.11.0** | 2026-07-26 | 内置 `omnifocus-cli` Skill——用 shell 命令驱动，不必加载全部工具 schema |
+| **v1.10.0** | 2026-07-25 | 标签管理、任务通知，以及 MCP Prompts 和 Resources |
+| **v1.9.0** | 2026-07-25 | `append_to_note`、`count_tasks`、`duplicate_task` |
+| **v1.8.0** | 2026-07-25 | Folder 管理：`add_folder`、`edit_folder`、`remove_folder`、`list_folders`、`get_folder` |
+| **v1.7.0** | 2026-07-24 | `set_repetition_rule`（OmniFocus 4.7+ ICS 规则）与 `exclusiveTags` |
+| **v1.6.10** | 2026-03-22 | 修复 Inbox 任务完成、AppleScript 转义与 JSON 转义 |
+| **v1.6.9** | 2026-03-17 | 任务附件支持：读取返回附件元数据，新增 `read_task_attachment` |
+| **v1.6.8** | 2026-02-25 | `move_task` 支持稳定移动，带重名与环路保护 |
+| **v1.6.6** | 2026-02-12 | Planned Date 全链路支持：创建、编辑、读取、筛选、排序、导出 |
 
-  安装器验证现在还会给每一处生成 CLI 的可执行路径加引号。项目级 Skill 经常位于 `Mobile Documents` 这类含空格目录下；此前 task-tree、outline 和 repetition 的未引用路径会在空格处被 shell 拆开，执行错误又被 `|| true` 吞掉，最后误报为正确生成的 flags 缺失。新增回归测试覆盖全部验证调用。
-
-- **v2.0.0** - MCP 工具面从 41 个专用工具收敛为 25 个严格聚合工具：任务视图统一使用 `get_tasks`，项目读取统一使用 `get_projects`，Folder、Tag 和通知 CRUD 统一使用 `manage_*` action。旧工具名直接移除，不保留兼容别名。详细任务读取会保留实际分配的叶标签，并通过 `path` 和 `ancestorIds` 暴露完整 OmniFocus 标签层级（例如 `团队 / 守一`）；Compact 仍省略标签。内置 Skill 与安装器同步生成并验证 25 个命令。
-
-- **v1.21.0** - 批量完成任务：新增 `batch_complete_tasks` 工具，可在一个验证事务中按稳定 ID 批量完成或取消完成最多 100 个任务。工具会预检每个 ID、快照原始完成状态、应用每个动作、读回验证状态与完成时间，失败时恢复原状态。重复任务完成后会生成新实例，工具返回 `generatedTaskId` 与 `nextOccurrence`。幂等项报告为 `unchanged` 而非失败。当前共 41 个工具、5 个 Prompts 和 3 个 Resources。
-
-- **v1.20.0** - 重复任务闭环：重复规则现在处处可读、可验证。`get_task_by_id` 返回规则字符串、重复方式、锚定日期、自动追平和下次发生时间；列表读取只增加 `isRepeating` 标记；`dump_database` 不再返回硬编码空值。`add_omnifocus_task` 和 `create_project_from_outline` 的任务节点都支持基于 ICS 规则字符串的 `repetition` 对象；`set_repetition_rule` 现在会先快照原规则，逐字段验证写入结果，失败时恢复原规则，无法确认恢复时返回受影响的任务 ID。当前仍为 40 个工具、5 个 Prompts 和 3 个 Resources。
-
-- **v1.19.0** - 项目塑形：新增 `create_project_from_outline`，可把用户确认过的结构化方案一次创建为完整 OmniFocus 项目树。工具支持稳定 Folder/Tag ID 和核心规划字段，限制最多 200 个任务、8 层任务层级；写入前完整预检引用，在一次 OmniJS 请求中创建，并读回验证每个节点和字段；执行或验证失败时只进行一次受限 Undo。新的 `project_shaping` Prompt 与内置 Skill 会引导提取、披露推断、解析 ID、确认、创建和汇报。当前共 40 个工具、5 个 Prompts 和 3 个 Resources。
-
-- **v1.18.0** - 可靠性版本：MCP SDK 升级到 1.30.0，Zod 升级到 3.25.76；Resources 迁移到 `registerResource`，有界任务快照现在明确区分 `totalCount`、`returnedCount` 和截断状态；读取自定义透视后会恢复用户原来的 OmniFocus 透视；删除未使用且不完整的 Perspective V2 / 调试实现；`batch_remove_items` 改为稳定 ID、完整预检、执行失败时通过 Undo 回滚、级联影响汇报和删除后验证。
-
-- **v1.17.1** - 维护版本：39 个工具和 4 个 Prompts 已迁移到当前 MCP 注册接口，并补齐只读、追加、破坏性操作注解；构建重新强制执行严格 TypeScript 检查，Node.js 最低版本提升到 22。npm 压缩包通过只发布运行时产物，从约 2.27 MB 降至约 117 KB；仓库 Logo 从 1.97 MB 缩小为 512×341、约 175 KB。
-
-- **v1.17.0** - 筛选分页与查询效率：`filter_tasks` 现在使用无状态、不透明的 Keyset Cursor 提供实时最佳努力分页，以稳定任务 ID 处理相同排序值，并严格校验筛选和排序是否变化。Compact 查询会在 OmniJS 内省略备注和标签，普通列表查询不再计算无用的状态聚合，后续页使用游标边界及一个任务的前瞻判断。隐私安全 benchmark 也新增第一页和第二页指标。工具面保持 39 个工具、4 个 Prompts 和 3 个 Resources。
-
-- **v1.16.0** - 每日规划助手：`daily_review` 现在会先进行精确统计，再有界读取并按 ID 合并候选任务，输出三个今日重点、可执行下一步、阻塞项及容量/截止风险。可选的 `availableMinutes` 只与已知估时比较，缺失估时会保留为不确定性。`filter_tasks` 新增可选的 `compact` 输出，适合不读取备注和完整标签的广泛规划查询；同时新增仅输出数字指标的隐私安全本地 benchmark。工具面保持 39 个工具、4 个 Prompts 和 3 个 Resources。
-
-- **v1.15.0** - 每周回顾闭环：新增保持简单的 `mark_projects_reviewed`，用于把用户已确认的一组 Active 或 OnHold 项目标记为已回顾。服务端会先验证所有项目及回顾元数据，整批使用同一时间戳；执行或验证失败时恢复原回顾日期，并验证 `lastReviewDate`、OmniFocus 生成的 `nextReviewDate` 和未被改变的回顾周期。Weekly Review Prompt 和 Skill 已同步“发现、讨论、确认、标记、汇报剩余项目”的完整流程。当前共 39 个工具、4 个 Prompts 和 3 个 Resources。
-- **v1.14.0** - 安全整理 Inbox：新增保持简单的 `batch_move_tasks`，只使用稳定任务 ID 和目标 ID 执行用户已确认的移动方案。服务端会在修改前预检完整批次，阻止无效目标和层级循环；执行失败时回滚已经完成的移动，并验证每个任务的最终位置。`inbox_processing` Prompt 和内置 Skill 已同步“读取、建议、确认、执行、汇报”流程。当前共 38 个工具、4 个 Prompts 和 3 个 Resources。
-- **v1.13.1** - 维护版本：MCP Server 元数据改为从 `package.json` 读取版本，避免 MCP 握手、CLI、NPM 包和 GitHub Release 的版本再次漂移；同时完成已发布 Skill 的端到端安装验证，确认 37 个命令、六个任务树命令的两项参数以及真实 OmniFocus 连接均正常。
-- **v1.13.0** - 读取工具支持任务树：`get_inbox_tasks`、`get_flagged_tasks`、`get_forecast_tasks`、`get_tasks_by_tag`、`filter_tasks` 和 `get_task_by_id` 默认显示可见直属子任务数量，并可通过 `showSubtasks`、`maxSubtaskDepth` 按需递归展开。展开列表会避免把已经显示在树内的后代再次作为顶层任务重复显示，子任务继承完成状态可见性规则，并通过 500 节点安全上限和明确截断提示避免响应失控。内置 `omnifocus-cli` Skill 已同步新工作流，安装时也会验证生成 CLI 包含两个任务树参数。
-- **v1.12.0** - 可靠性版本：重写 `filter_tasks` / `count_tasks` 的统一过滤引擎，截止/推迟/计划/完成日期、估时、备注、标签、Inbox、项目和组合过滤现在都会真正生效；`count_tasks` 改为低开销聚合模式；新增 `get_projects` 和 `get_projects_due_for_review`，可读取 OmniFocus 原生回顾日期和周期；MCP SDK 升级至 1.29.0，并清空生产依赖安全告警；Claude Skill 更新到 37 个工具，生成文件改为 `.cjs`，可安全安装在 ESM 项目中。
-- **v1.11.1** - Claude Skill 默认安装到当前项目的 `.claude/skills/omnifocus-cli/`，并使用项目级 mcporter 配置；只有显式传入 `--global` 才会安装到 `~/.claude/skills/`。
-- **v1.11.0** - 新增可一键安装的 `omnifocus-cli` Skill，让 AI 通过本地 CLI 调用 MCP，避免在上下文中加载全部工具 schema。
-- **v1.10.0** - 新增标签 CRUD、任务提醒、4 个 MCP Prompts 和 3 个 MCP Resources。
-- **v1.9.0** - 新增 `append_to_note`、`count_tasks`、`duplicate_task`。
-- **v1.8.0** - 新增完整 Folder CRUD（创建、读取、编辑、删除、列表）。
-- **v1.7.0** - 新增 OmniFocus 4.7+ 重复规则支持（`set_repetition_rule`：ICS 规则、重复方式、锚定日期、自动追平、结束日期、重复次数），新增互斥标签支持（`exclusiveTags`），并补全计划日期编辑测试。
-- **v1.6.10** - 修复 `edit_item` 无法完成 Inbox 任务的问题，修复 AppleScript 对单引号/反斜杠等特殊字符的处理，修复特殊字符导致的 JSON 返回解析失败，并补充 `batch_add_items` / `mcporter` 的可直接运行示例与说明。
-- **v1.6.9** - 新增任务附件支持：`get_task_by_id` 会返回附件元信息，`dump_database` 导出附件/链接元信息，并新增 `read_task_attachment`，可在支持时直接把图片附件作为 MCP 图片内容返回。
-- **v1.6.6** - 新增 Planned Date（计划日期）全链路支持：创建/编辑/读取/过滤/排序/导出，包含 `plannedDate` / `newPlannedDate`。
+</details>
 
 ## ✨ 核心特性
 
@@ -100,7 +98,7 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 - **🔄 完整 CRUD 操作** - 创建、读取、更新、删除任务和项目
 - **🌳 项目塑形** - 把确认过的文本方案安全创建为经过读回验证的完整项目树
 - **💬 MCP Prompts** - 5 个引导式工作流（每日、每周、Inbox、项目规划、项目塑形）
-- **🛠️ Agent Skill** - 本地 CLI 覆盖全部 25 个聚合工具，减少 AI 上下文占用
+- **🛠️ Agent Skill** - 本地 CLI 覆盖全部 26 个聚合工具，减少 AI 上下文占用
 - **📅 时间管理** - 截止日期、推迟日期、计划日期、估时和计划
 - **🏷️ 高级标签** - 基于标签的精确/模糊匹配过滤
 - **🚫 互斥标签** - 应用标签时自动遵守互斥标签组规则
@@ -611,7 +609,7 @@ read_task_attachment {
 
 `get_task_by_id` 现在会返回附件 ID、名称、推断出的 MIME 类型、来源（`embedded` 或 `linked`）以及可用时的大小。`read_task_attachment` 会尽量把图片作为 MCP 图片内容直接返回，这样 AI 客户端可以直接查看图片，而不是只能读一段 base64 文本。
 
-## 🛠️ 完整工具参考——25 个工具
+## 🛠️ 完整工具参考——26 个工具
 
 ### 任务和项目操作
 
@@ -623,26 +621,27 @@ read_task_attachment {
 6. **move_task** - 移动单个任务
 7. **batch_move_tasks** - 原子移动用户确认的任务集合
 8. **batch_complete_tasks** - 原子完成或恢复最多 100 个任务
-9. **batch_add_items** - 批量创建任务或项目
-10. **batch_remove_items** - 原子删除用户确认的项目集合
-11. **create_project_from_outline** - 创建并验证完整项目树
-12. **get_task_by_id** - 读取单个任务及附件元信息
-13. **read_task_attachment** - 读取任务报告的某个附件
-14. **get_tasks** - 通过 `source` 读取 Inbox、Flagged、Forecast、Tag 或自定义透视任务
-15. **filter_tasks** - 按状态、日期、项目、标签和文本等筛选；`{ "completedToday": true }` 可查看今日完成
-16. **get_projects** - 读取所有项目，或使用 `view=due_for_review` 读取待回顾项目
-17. **mark_projects_reviewed** - 原子标记用户确认的项目为已回顾
-18. **set_repetition_rule** - 设置、更新或清除任务重复规则
+9. **batch_edit_items** - 原子修改最多 100 个任务的字段与标签，支持相对日期偏移
+10. **batch_add_items** - 批量创建任务或项目
+11. **batch_remove_items** - 原子删除用户确认的项目集合
+12. **create_project_from_outline** - 创建并验证完整项目树
+13. **get_task_by_id** - 读取单个任务及附件元信息
+14. **read_task_attachment** - 读取任务报告的某个附件
+15. **get_tasks** - 通过 `source` 读取 Inbox、Flagged、Forecast、Tag 或自定义透视任务
+16. **filter_tasks** - 按状态、日期、项目、标签和文本等筛选；`{ "completedToday": true }` 可查看今日完成
+17. **get_projects** - 读取所有项目，或使用 `view=due_for_review` 读取待回顾项目
+18. **mark_projects_reviewed** - 原子标记用户确认的项目为已回顾
+19. **set_repetition_rule** - 设置、更新或清除任务重复规则
 
 ### 组织与生产力
 
-19. **manage_perspectives** - `list`、`get` 或 `update` 自定义透视及其筛选规则
-20. **manage_folders** - `list`、`get`、`add`、`edit` 或 `remove` Folder
-21. **manage_tags** - `list`、`search`、`add`、`edit` 或 `remove` Tag
-22. **manage_task_notifications** - `list`、`add` 或 `remove` 任务提醒
-23. **append_to_note** - 追加任务/项目备注，不覆盖原内容
-24. **count_tasks** - 使用筛选引擎统计任务
-25. **duplicate_task** - 复制任务，可选择包含子任务
+20. **manage_perspectives** - `list`、`get` 或 `update` 自定义透视及其筛选规则
+21. **manage_folders** - `list`、`get`、`add`、`edit` 或 `remove` Folder
+22. **manage_tags** - `list`、`search`、`add`、`edit` 或 `remove` Tag
+23. **manage_task_notifications** - `list`、`add` 或 `remove` 任务提醒
+24. **append_to_note** - 追加任务/项目备注，不覆盖原内容
+25. **count_tasks** - 使用筛选引擎统计任务
+26. **duplicate_task** - 复制任务，可选择包含子任务
 
 四个 `manage_*` 工具同时包含读取和写入，因此 MCP annotation 保守地标为破坏性；`list`、`get`、`search` 不会修改数据，`remove` 则必须遵循与独立删除工具相同的确认流程。`manage_perspectives` 不会创建或删除透视（OmniFocus 没有提供对应的自动化接口），唯一的写操作是原地编辑。
 

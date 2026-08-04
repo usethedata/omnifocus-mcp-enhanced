@@ -27,13 +27,14 @@ function captureTools(): RegisteredToolCall[] {
   return calls;
 }
 
-test('registerTools exposes 25 unique consolidated tools', () => {
+test('registerTools exposes 26 unique consolidated tools', () => {
   const calls = captureTools();
   const names = calls.map((call) => call.name);
 
-  assert.equal(calls.length, 25);
+  assert.equal(calls.length, 26);
   assert.equal(new Set(names).size, calls.length);
   assert.equal(names.includes('manage_task_notifications'), true);
+  assert.equal(names.includes('batch_edit_items'), true);
   assert.equal(names.includes('get_today_completed_tasks'), false);
   assert.equal(names.includes('list_task_notifications'), false);
   assert.equal(names.includes('add_task_notification'), false);

@@ -1,6 +1,6 @@
 ---
 name: omnifocus-cli
-description: Use a generated local CLI for OmniFocus MCP operations (tasks, project outlines, reviews, folders, tags, notifications, perspectives, filtering and counting) to keep context usage low and avoid loading 25 full MCP tool schemas in chat. Trigger when the user asks for OmniFocus actions and local shell execution is available.
+description: Use a generated local CLI for OmniFocus MCP operations (tasks, project outlines, reviews, folders, tags, notifications, perspectives, filtering and counting) to keep context usage low and avoid loading 26 full MCP tool schemas in chat. Trigger when the user asks for OmniFocus actions and local shell execution is available.
 ---
 
 # OmniFocus CLI
@@ -8,7 +8,7 @@ description: Use a generated local CLI for OmniFocus MCP operations (tasks, proj
 ## Overview
 
 Use the local bundled CLI instead of direct MCP tool-calling for OmniFocus requests.
-The MCP server exposes 25 consolidated tools; loading all their schemas into chat is expensive.
+The MCP server exposes 26 consolidated tools; loading all their schemas into chat is expensive.
 This CLI gives you the same capabilities as deterministic shell commands.
 
 CLI location: `bin/omnifocus-enhanced.cjs` (relative to this skill directory).
@@ -228,6 +228,37 @@ bin/omnifocus-enhanced.cjs batch-complete-tasks --raw '{
 - Repeating tasks generate new instances when completed; the tool reports `generatedTaskId` and `nextOccurrence`
 - Idempotent items are reported as `unchanged` rather than failing
 
+### Batch editing
+
+Change fields and tags on up to 100 tasks in one verified transaction. Each item
+names one task and carries only the fields it changes:
+
+```bash
+bin/omnifocus-enhanced.cjs batch-edit-items --raw '{
+  "items": [
+    {"taskId": "<id-1>", "dueDateShift": "+1w"},
+    {"taskId": "<id-2>", "dueDate": "2026-09-15T17:00:00", "flagged": true},
+    {"taskId": "<id-3>", "addTags": ["Deep Work"], "estimatedMinutes": null}
+  ]
+}'
+```
+
+- An omitted field is untouched; an explicit `null` clears it
+- `estimatedMinutes: null` clears the estimate, `0` stores a zero-minute estimate
+- Each date takes either an absolute value or a `*Shift` offset, never both
+- Shift grammar is `[+-]<integer><d|w|m>`; month shifts clamp to the target month
+  end, so 31 January `+1m` lands in February
+- A shift against a task with no value in that field fails the whole request
+- `replaceTags` cannot be combined with `addTags` or `removeTags`
+- Tag names must already exist; the tool never creates one
+- Completed and dropped tasks are refused. Use `edit-item` for a single
+  deliberate change to finished work
+- Pass `"dryRun": true` to get the same per-field diff without writing
+
+Use this instead of looping `edit-item`: one call preflights everything,
+executes atomically, verifies every write, and restores all previous values on
+any failure.
+
 ## Project Shaping
 
 To turn meeting notes, brainstorming, or a task list into a new project:
@@ -428,11 +459,11 @@ npx -y omnifocus-mcp-enhanced@latest install-skill --global
 
 The installer pins the MCP server to the exact package version that shipped the
 skill (and mcporter to `@latest`), regenerates the
-CLI, verifies all 25 commands, and checks the live OmniFocus connection. To
+CLI, verifies all 26 commands, and checks the live OmniFocus connection. To
 inspect the generated command count manually:
 
 ```bash
-bin/omnifocus-enhanced.cjs --help | grep -cE "^\s+[a-z][a-z-]+"   # expect 28 (25 tools + built-ins)
+bin/omnifocus-enhanced.cjs --help | grep -cE "^\s+[a-z][a-z-]+"   # expect 29 (26 tools + built-ins)
 ```
 
 `install-skill` is the only supported way to refresh the CLI. Do **not** use

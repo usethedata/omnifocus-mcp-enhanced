@@ -42,49 +42,46 @@ If that feels natural, this MCP server is doing its job.
 
 Want to see where the project is heading next? See the [roadmap](docs/roadmap/2026-02-25-batch-move-tasks-plan.md).
 
-## 🆕 Latest Release
+## 🆕 Releases
 
-- **v2.1.1** - Due, defer, and planned dates now keep their time of day. `appleScriptDateCode` hardcoded hours, minutes, and seconds to zero, so every date written through `add_omnifocus_task`, `add_project`, and `edit_item` collapsed to local midnight even though those tool schemas advertise a full ISO date. `create_project_from_outline`, which writes through JXA, had always preserved the time, so the two write paths disagreed. The time is now read straight from the ISO string exactly as the year, month, and day already were: verbatim wall-clock, with no timezone conversion, so an offset or `Z` suffix is ignored and the day can never drift away from the time it was paired with. Date-only input still resolves to midnight, so existing callers are unaffected. Thanks to [@danilicari](https://github.com/danilicari) ([#40](https://github.com/jqlts1/omnifocus-mcp-enhanced/pull/40)).
+Full notes for every release are on the [Releases page](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases). Current surface: **26 tools, 5 prompts, 3 resources**.
 
-  This build also carries the spaced-path installer fixes described under v2.1.0, which landed after that release was already published to npm.
+| Version | Date | Highlights |
+| --- | --- | --- |
+| **v2.2.0** | 2026-08-04 | `batch_edit_items` — fields, tags, and relative date shifts across up to 100 tasks in one verified, rollback-safe transaction. Also fixes exclusive tag groups, which never actually dropped a sibling tag |
+| **v2.1.1** | 2026-08-04 | Due, defer, and planned dates keep their time of day instead of collapsing to midnight |
+| **v2.1.0** | 2026-07-31 | `manage_perspectives` reads, explains, and edits custom perspective filter rules; skill CLI 2.1x faster |
+| **v2.0.0** | 2026-07-31 | **Breaking:** 41 tools consolidated into 25 (`get_tasks`, `get_projects`, `manage_*`); legacy names removed |
+| **v1.21.0** | 2026-07-29 | `batch_complete_tasks` — up to 100 tasks in one verified, rollback-safe transaction |
+| **v1.20.0** | 2026-07-29 | Repetition readable and verified everywhere; `repetition` accepted at creation |
+| **v1.19.0** | 2026-07-28 | `create_project_from_outline` turns one confirmed outline into a full project tree |
+| **v1.18.0** | 2026-07-28 | Reliability: MCP SDK 1.30.0, bounded Resource snapshots, rebuilt `batch_remove_items` |
+| **v1.17.1** | 2026-07-27 | Modern MCP registration APIs, Node.js 22 baseline, npm tarball 2.27 MB → 117 KB |
+| **v1.17.0** | 2026-07-27 | `filter_tasks` keyset pagination with stateless cursors |
+| **v1.16.0** | 2026-07-27 | `daily_review` count-first discovery with capacity and deadline risks |
+| **v1.15.0** | 2026-07-27 | `mark_projects_reviewed` completes the Weekly Review workflow |
+| **v1.14.0** | 2026-07-27 | `batch_move_tasks` for safe, fully preflighted Inbox organization |
 
-- **v2.1.0** - Custom perspective rule management: the new `manage_perspectives` tool reads, explains, and edits the filter rules behind a custom perspective, replacing `list_custom_perspectives`. Rules are exposed as a readable, name-based document instead of raw primary keys, and edits are written in place so a perspective's identifier never changes. The rule vocabulary was verified against the running app rather than taken from Omni's documentation, which proved both incomplete and partly wrong: `actionHasPlannedDate` is undocumented, the documented `changed` date field is ignored by the filter engine, and an entire `actionHasDate*` family present in the binary is dead. OmniFocus performs no validation on rule writes — an invalid rule is stored intact and then silently makes the perspective match everything — so the server validates every rule before writing, preserves rules it does not recognize verbatim, refuses unknown or ambiguous tag and project names, rolls back on failure, and forces the display refresh that OmniFocus otherwise skips. Creating and deleting perspectives remain out of scope: OmniFocus exposes no automation API for either. The surface remains 25 tools, 5 prompts, and 3 resources.
+<details>
+<summary><b>Earlier releases</b> (v1.13.1 and older)</summary>
 
-  The skill installer also stops leaking latency. mcporter only keeps an MCP server process alive when its config entry asks for it, and its built-in defaults cover a handful of browser-automation servers and nothing else, so every CLI call was re-resolving `npx -y` and cold starting a server. The installer now registers the server with `lifecycle: "keep-alive"` and asserts the setting reached the generated bundle — measured at 2.1x faster per command (12.9s → 6.1s median, interleaved A/B). Note that `mcporter generate-cli --from <bundle>` drops `lifecycle` from its replay metadata, so refreshing the CLI that way silently reverts this; `install-skill` is the only supported refresh path. The generated CLI is also pinned to `--runtime node`, because mcporter otherwise picks the runtime from whatever is on `PATH` at generation time and emits a `#!/usr/bin/env bun` shebang that fails to exec from shells with a narrower `PATH`. A new test asserts the installer's verification checklist names exactly the tools the server registers, so a renamed tool can no longer ship an installer that aborts on a correctly installed package.
+| Version | Date | Highlights |
+| --- | --- | --- |
+| **v1.13.1** | 2026-07-26 | Server version read from `package.json`, ending version drift |
+| **v1.13.0** | 2026-07-26 | Task-tree-aware reads: subtask counts plus `showSubtasks` / `maxSubtaskDepth` |
+| **v1.12.0** | 2026-07-26 | `filter_tasks` / `count_tasks` rebuilt on one OmniJS predicate; `get_projects` added |
+| **v1.11.1** | 2026-07-26 | `install-skill` defaults to the current project; `--global` opts out |
+| **v1.11.0** | 2026-07-26 | Bundled `omnifocus-cli` agent skill — drive OmniFocus by shell instead of tool schemas |
+| **v1.10.0** | 2026-07-25 | Tag management, task notifications, plus MCP Prompts and Resources |
+| **v1.9.0** | 2026-07-25 | `append_to_note`, `count_tasks`, `duplicate_task` |
+| **v1.8.0** | 2026-07-25 | Folder management: `add_folder`, `edit_folder`, `remove_folder`, `list_folders`, `get_folder` |
+| **v1.7.0** | 2026-07-24 | `set_repetition_rule` (OmniFocus 4.7+ ICS rules) and `exclusiveTags` |
+| **v1.6.10** | 2026-03-22 | Inbox completion, AppleScript escaping, and JSON escaping fixes |
+| **v1.6.9** | 2026-03-17 | Task attachments: metadata in reads plus `read_task_attachment` |
+| **v1.6.8** | 2026-02-25 | `move_task` with duplicate-name and cycle protection |
+| **v1.6.6** | 2026-02-12 | Planned Date support across create, edit, read, filter, sort, and export |
 
-  Installer verification now also quotes every generated CLI executable path. Project-local skills frequently live below directories such as `Mobile Documents`; the previous unquoted task-tree, outline, and repetition checks split those paths at spaces, swallowed the exec error with `|| true`, and falsely reported that valid generated flags were missing. A regression test covers every verification invocation.
-
-- **v2.0.0** - Consolidated the MCP surface from 41 specialized tools to 25 strict tools: task views now use `get_tasks`, project reads use `get_projects`, and Folder/Tag/notification CRUD use `manage_*` actions. Removed legacy tool names rather than keeping aliases. Detailed task reads now preserve each assigned leaf tag while exposing its full OmniFocus hierarchy through `path` and `ancestorIds` (for example, `团队 / 守一`); compact reads still omit tags. The bundled Skill and installer now generate and verify the 25-command surface.
-
-- **v1.21.0** - Batch task completion: new `batch_complete_tasks` tool marks up to 100 tasks complete or incomplete by stable ID in one verified transaction. The tool preflights every ID, snapshots original completion states, applies each action, reads back to verify status and completion dates, and restores previous states on any failure. Repeating tasks generate new instances when completed; the tool reports `generatedTaskId` and `nextOccurrence`. Idempotent items are reported as `unchanged` rather than failing. The surface now includes 41 tools, 5 prompts, and 3 resources.
-
-- **v1.20.0** - Repeating tasks completed: repetition is now readable and verified everywhere. `get_task_by_id` returns the rule string, schedule type, anchor date, catch-up behavior, and the next occurrence; list reads add only an `isRepeating` marker; `dump_database` reports real repetition instead of hard-coded nulls. `add_omnifocus_task` and every task node of `create_project_from_outline` accept a `repetition` object using ICS rule strings, and `set_repetition_rule` now snapshots the previous rule, verifies every written field, restores on failure, and reports an unconfirmed restore with the affected task ID. The surface remains 40 tools, 5 prompts, and 3 resources.
-
-- **v1.19.0** - Project Shaping: added `create_project_from_outline` for turning one user-confirmed structured outline into a complete OmniFocus project tree. The tool accepts stable Folder/Tag IDs and core planning fields, enforces a 200-task/eight-level bound, preflights every reference before writing, creates the tree in one OmniJS request, reads every node and field back, and performs one bounded Undo if execution or verification fails. The new `project_shaping` Prompt and bundled Skill guide extract, disclose inferences, resolve IDs, confirm, create, and report. The surface is now 40 tools, 5 prompts, and 3 resources.
-
-- **v1.18.0** - Reliability release: upgraded the MCP SDK to 1.30.0 and Zod to 3.25.76; migrated Resources to `registerResource` with bounded task snapshots that distinguish `totalCount`, `returnedCount`, and truncation; restored the user's original OmniFocus perspective after custom-perspective reads; removed the unused incomplete Perspective V2/debug implementation; and rebuilt `batch_remove_items` around stable IDs, complete preflight, undo-based rollback on execution failure, cascade reporting, and post-delete verification.
-
-- **v1.17.1** - Maintenance release: migrated all 39 tools and 4 prompts to the current MCP registration APIs with read/additive/destructive annotations, restored mandatory strict TypeScript checking, raised the runtime baseline to Node.js 22, and reduced the npm tarball from about 2.27 MB to about 117 KB by publishing only runtime artifacts. The repository logo is now 512×341 and about 175 KB instead of 1.97 MB.
-
-- **v1.17.0** - Filter pagination and query efficiency: `filter_tasks` now returns stateless opaque keyset cursors for real-time best-effort traversal, with stable ID tie-breaking and strict query/sort validation. Compact reads omit notes and tags inside OmniJS, normal list reads skip unused status aggregation, and later pages use cursor boundaries plus one-item lookahead. The privacy-safe benchmark now records first- and second-page metrics. The surface remains 39 tools, 4 prompts, and 3 resources.
-
-- **v1.16.0** - Daily Planning Assistant: `daily_review` now uses exact count-first discovery and bounded, deduplicated candidates to produce three priorities plus next actions, blockers, and capacity/deadline risks. Its optional `availableMinutes` input compares only known estimates and preserves missing estimates as uncertainty. `filter_tasks` adds opt-in `compact` output for broad planning reads without notes or full tags, and a privacy-safe local benchmark provides numeric regression evidence. The surface remains 39 tools, 4 prompts, and 3 resources.
-
-- **v1.15.0** - Weekly Review completion: added the narrow `mark_projects_reviewed` tool for marking a user-confirmed set of active or on-hold projects reviewed. The server validates every project and its review metadata before writing, uses one timestamp for the complete batch, restores prior review dates after execution or verification failures, and verifies `lastReviewDate`, the OmniFocus-generated `nextReviewDate`, and the unchanged review interval. The Weekly Review Prompt and Skill now guide discovery, discussion, confirmation, marking, and remaining-review reporting. Now 39 tools, 4 prompts, and 3 resources.
-- **v1.14.0** - Safe Inbox organization: added the intentionally narrow `batch_move_tasks` tool for executing a user-confirmed move proposal using stable task and destination IDs. The server preflights the complete batch before changing anything, blocks invalid destinations and hierarchy cycles, rolls back completed moves after execution failures, and verifies every final destination. The `inbox_processing` Prompt and bundled Skill now guide AI clients through read, propose, confirm, execute, and report. Now 38 tools, 4 prompts, and 3 resources.
-- **v1.13.1** - Maintenance release: MCP server metadata now reads its version from `package.json`, preventing the MCP handshake, CLI, NPM package, and GitHub release versions from drifting apart. The published Skill installation was also verified end to end with all 37 commands, all six task-tree flag pairs, and a live OmniFocus connection.
-- **v1.13.0** - Task-tree-aware reads: `get_inbox_tasks`, `get_flagged_tasks`, `get_forecast_tasks`, `get_tasks_by_tag`, `filter_tasks`, and `get_task_by_id` now show visible direct subtask counts by default and support on-demand recursive expansion with `showSubtasks` and `maxSubtaskDepth`. Expanded lists suppress duplicate top-level descendants, inherit completion visibility rules, and enforce a 500-node safety cap with explicit truncation output. The bundled `omnifocus-cli` Skill documents the new workflow and verifies both generated CLI flags during installation.
-- **v1.12.0** - Reliability release: rebuilt `filter_tasks` and `count_tasks` on one complete OmniJS predicate (due/defer/planned/completion dates, estimates, notes, tags, inbox, project, status, and combined filters now actually work); added low-overhead `countOnly` aggregation; added `get_projects` and `get_projects_due_for_review` with native OmniFocus review metadata; upgraded the MCP SDK to 1.29.0 and cleared all production audit findings; updated the Claude skill to 37 tools and changed its generated bundle to `.cjs` so project-local installs work inside ESM repositories.
-- **v1.11.1** - Fixed skill installation scope for Claude Code: `install-skill` now installs into the **current project's** `.claude/skills/omnifocus-cli/` and writes a project-scoped mcporter config by default. Pass `--global` to opt into `~/.claude/skills/omnifocus-cli/` and the home mcporter config. `CLAUDE_SKILLS_DIR` can override the skill root.
-- **v1.11.0** - Added a bundled **agent skill** (`omnifocus-cli`). One command (`npx omnifocus-mcp-enhanced install-skill`) generates a local CLI covering all 35 tools, so AI agents can drive OmniFocus through shell commands instead of loading 35 tool schemas into context. The CLI is generated on your machine from your installed server version, so it never drifts out of sync.
-- **v1.10.0** - Major capability expansion: **Tag Management** (`add_tag`, `edit_tag`, `remove_tag`, `search_tags`), **Task Notifications** (`list_task_notifications`, `add_task_notification`, `remove_task_notification` — absolute or due-relative reminders), plus first-class MCP **Prompts** (4 guided review workflows) and **Resources** (3 live JSON snapshots). Now 35 tools, 4 prompts, and 3 resources.
-- **v1.9.0** - Added 3 productivity tools: `append_to_note` (append text to a task/project note without overwriting), `count_tasks` (fast "how many" aggregate queries with a status breakdown, using the same filters as `filter_tasks`), and `duplicate_task` (clone a task with or without its subtasks, optionally renamed).
-- **v1.8.0** - Added full **Folder Management** support: `add_folder`, `edit_folder`, `remove_folder`, `list_folders`, and `get_folder`. Create nested folder hierarchies, rename/move folders (with cycle protection), and inspect folder contents (child projects + subfolders). Note: removing a folder permanently deletes all projects and tasks it contains.
-- **v1.7.0** - Added OmniFocus 4.7+ repeat rule support via `set_repetition_rule` (ICS rule strings, schedule type, anchor date, catch-up, end date, repetition count), mutually exclusive tag support via `exclusiveTags` on add/edit tools, and improved planned-date editing tests.
-- **v1.6.10** - Fixed Inbox task completion via `edit_item`, fixed AppleScript special-character handling for apostrophes/backslashes, fixed JSON result escaping for special characters, and clarified `batch_add_items` / `mcporter` usage with working examples.
-- **v1.6.9** - Added task attachment support: `get_task_by_id` now lists attachment metadata, `dump_database` exports attachment/link metadata, and new `read_task_attachment` returns image attachments as MCP image content when possible.
-- **v1.6.8** - Added stable task move support via `move_task` and `edit_item` (`newProjectId/newProjectName/newParentTaskId/newParentTaskName/moveToInbox`) with duplicate-name protection and cycle-prevention checks.
-- **v1.6.6** - Added full Planned Date support (create/edit/read/filter/sort/export), including `plannedDate`/`newPlannedDate` and updated task displays.
+</details>
 
 ## ✨ Key Features
 
@@ -108,7 +105,7 @@ Want to see where the project is heading next? See the [roadmap](docs/roadmap/20
 - **🔔 Task Notifications** - List, add, and remove reminders (absolute time or relative to due date)
 - **💬 MCP Prompts** - 5 guided workflows (daily, weekly, inbox processing, project planning, project shaping)
 - **📡 MCP Resources** - 3 live JSON snapshots (inbox, today, active projects)
-- **🛠️ Agent Skill** - One-command install of a local CLI covering all 25 consolidated tools, to keep AI context usage low
+- **🛠️ Agent Skill** - One-command install of a local CLI covering all 26 consolidated tools, to keep AI context usage low
 - **📅 Time Management** - Due, defer, planned dates, estimates, and scheduling
 - **🏷️ Advanced Tagging** - Tag-based filtering with exact/partial matching
 - **🚫 Mutually Exclusive Tags** - Automatically respects exclusive tag groups when applying tags
@@ -567,6 +564,33 @@ mcporter call omnifocus.batch_add_items --args '{
 
 Because a subtask must inherit its project from the parent task.
 
+Editing a set of tasks works the same way. Each item names one task and carries
+only the fields it changes — an omitted field is untouched, an explicit `null`
+clears it, and dates take either an absolute value or a signed shift:
+
+```bash
+# Push three tasks out a week, retag one, and clear an estimate
+mcporter call omnifocus.batch_edit_items --args '{
+  "items": [
+    { "taskId": "abc123", "dueDateShift": "+1w" },
+    { "taskId": "def456", "dueDateShift": "+1w", "flagged": true },
+    { "taskId": "ghi789", "dueDateShift": "+1m", "addTags": ["Deep Work"], "estimatedMinutes": null }
+  ]
+}'
+```
+
+Shifts accept `d`, `w`, and `m`. A month shift clamps to the target month end, so
+31 January plus one month lands in February rather than March. A shift against a
+task that has no value in that field fails the whole request instead of inventing
+a date.
+
+Preview a large edit before applying it with `"dryRun": true`, which returns the
+same per-field diff and writes nothing.
+
+Completed and dropped tasks are refused: OmniFocus accepts writes to them
+silently, and a bulk edit that quietly rewrites finished work is worse than a
+refusal. Use `edit_item` for a single deliberate change.
+
 ### 6. Project Shaping
 
 Use `project_shaping` to turn meeting notes, brainstorming, or a task list into a readable project tree. The assistant labels inferred metadata, resolves Folder and Tag stable IDs, and asks for explicit confirmation of the final tree before calling `create_project_from_outline` once.
@@ -631,7 +655,7 @@ read_task_attachment {
 
 `get_task_by_id` now reports attachment IDs, names, MIME guesses, source (`embedded` vs `linked`), and sizes when available. `read_task_attachment` returns images as MCP image content when possible, so AI clients can inspect the image directly instead of parsing base64 from plain text.
 
-## 🛠️ Complete Tool Reference — 25 Tools
+## 🛠️ Complete Tool Reference — 26 Tools
 
 ### Task and project operations
 
@@ -643,26 +667,27 @@ read_task_attachment {
 6. **move_task** - Move one task
 7. **batch_move_tasks** - Atomically move a confirmed task set
 8. **batch_complete_tasks** - Atomically complete or reopen up to 100 tasks
-9. **batch_add_items** - Add multiple tasks or projects
-10. **batch_remove_items** - Atomically delete a confirmed item set
-11. **create_project_from_outline** - Create and verify one complete project tree
-12. **get_task_by_id** - Read one task and its attachment metadata
-13. **read_task_attachment** - Read one reported task attachment
-14. **get_tasks** - Read inbox, flagged, forecast, tag, or custom-perspective tasks via `source`
-15. **filter_tasks** - Filter tasks by status, dates, project, tags, text, and more; use `{ "completedToday": true }` for today's completed work
-16. **get_projects** - Read all projects or use `view=due_for_review` for projects due for review
-17. **mark_projects_reviewed** - Atomically mark confirmed projects reviewed
-18. **set_repetition_rule** - Set, update, or clear a task repeat rule
+9. **batch_edit_items** - Atomically edit fields and tags on up to 100 tasks, with relative date shifts
+10. **batch_add_items** - Add multiple tasks or projects
+11. **batch_remove_items** - Atomically delete a confirmed item set
+12. **create_project_from_outline** - Create and verify one complete project tree
+13. **get_task_by_id** - Read one task and its attachment metadata
+14. **read_task_attachment** - Read one reported task attachment
+15. **get_tasks** - Read inbox, flagged, forecast, tag, or custom-perspective tasks via `source`
+16. **filter_tasks** - Filter tasks by status, dates, project, tags, text, and more; use `{ "completedToday": true }` for today's completed work
+17. **get_projects** - Read all projects or use `view=due_for_review` for projects due for review
+18. **mark_projects_reviewed** - Atomically mark confirmed projects reviewed
+19. **set_repetition_rule** - Set, update, or clear a task repeat rule
 
 ### Organization and productivity
 
-19. **manage_perspectives** - `list`, `get`, or `update` custom perspectives and their filter rules
-20. **manage_folders** - `list`, `get`, `add`, `edit`, or `remove` folders
-21. **manage_tags** - `list`, `search`, `add`, `edit`, or `remove` tags
-22. **manage_task_notifications** - `list`, `add`, or `remove` task reminders
-23. **append_to_note** - Append without overwriting a task/project note
-24. **count_tasks** - Count tasks using the filter engine
-25. **duplicate_task** - Duplicate a task, optionally with subtasks
+20. **manage_perspectives** - `list`, `get`, or `update` custom perspectives and their filter rules
+21. **manage_folders** - `list`, `get`, `add`, `edit`, or `remove` folders
+22. **manage_tags** - `list`, `search`, `add`, `edit`, or `remove` tags
+23. **manage_task_notifications** - `list`, `add`, or `remove` task reminders
+24. **append_to_note** - Append without overwriting a task/project note
+25. **count_tasks** - Count tasks using the filter engine
+26. **duplicate_task** - Duplicate a task, optionally with subtasks
 
 The four `manage_*` tools mix reads and writes, so their MCP annotations are deliberately conservative and destructive. `list`/`get`/`search` actions do not mutate; remove actions require the same confirmation discipline as dedicated deletion tools. `manage_perspectives` never creates or deletes a perspective — OmniFocus exposes no automation API for either — so its only write is an in-place edit.
 
@@ -690,7 +715,7 @@ Live JSON snapshots your AI client can read without calling a tool.
 
 ## 🛠️ Agent Skill (NEW in v1.11.0)
 
-With 25 consolidated tools, loading every MCP schema still costs context. The bundled **`omnifocus-cli` skill** generates a local CLI so agents can drive OmniFocus through compact shell commands instead.
+With 26 consolidated tools, loading every MCP schema still costs context. The bundled **`omnifocus-cli` skill** generates a local CLI so agents can drive OmniFocus through compact shell commands instead.
 
 ### Install
 
@@ -723,7 +748,7 @@ That single command:
 1. Registers the MCP server with [mcporter](https://github.com/openclaw/mcporter), pinned to the exact package version that shipped the installer, with `lifecycle: "keep-alive"` so repeat calls reuse one warm server instead of cold starting one each time
 2. Generates a standalone CLI from the server's live tool schemas (~20s), pinned to the Node runtime so the CLI stays runnable from any shell
 3. Installs `SKILL.md` + the CLI into the current project's `.claude/skills/omnifocus-cli/` (or `~/.claude/skills/omnifocus-cli/` with `--global`)
-4. Verifies all 25 tools are present, that keep-alive reached the generated bundle, and that OmniFocus is reachable
+4. Verifies all 26 tools are present, that keep-alive reached the generated bundle, and that OmniFocus is reachable
 
 Install elsewhere with `CLAUDE_SKILLS_DIR=/custom/path npx -y omnifocus-mcp-enhanced@latest install-skill` (`AGENT_SKILLS_DIR` remains available as a legacy alias).
 

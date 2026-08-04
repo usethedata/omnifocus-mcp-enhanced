@@ -13,6 +13,7 @@ import * as addOmniFocusTaskTool from './definitions/addOmniFocusTask.js';
 import * as addProjectTool from './definitions/addProject.js';
 import * as appendToNoteTool from './definitions/appendToNote.js';
 import * as batchAddItemsTool from './definitions/batchAddItems.js';
+import * as batchEditItemsTool from './definitions/batchEditItems.js';
 import * as batchMoveTasksTool from './definitions/batchMoveTasks.js';
 import * as batchRemoveItemsTool from './definitions/batchRemoveItems.js';
 import * as countTasksTool from './definitions/countTasks.js';
@@ -117,6 +118,13 @@ const TOOLS = [
     description:
       'Mark tasks complete or incomplete by stable ID. Accepts up to 100 items with optional completion dates. Preflights every ID, verifies every result, and restores previous states on failure. Repeating tasks generate new instances when completed.',
     tool: batchCompleteTasksTool,
+    annotations: MUTATING_TOOL,
+  },
+  {
+    name: 'batch_edit_items',
+    description:
+      "Edit fields and tags on up to 100 tasks by stable ID. Each item carries only the fields it changes; an omitted field is untouched and an explicit null clears it. Dates accept an absolute value or a signed shift such as \"+1w\". Preflights every task, refuses completed or dropped tasks, verifies every write, and restores all previous values on any failure. Use batch_move_tasks to change placement and batch_complete_tasks to change completion.",
+    tool: batchEditItemsTool,
     annotations: MUTATING_TOOL,
   },
   {

@@ -122,6 +122,8 @@ export async function executeOmniFocusScript(scriptPath: string, args?: any): Pr
       'getTaskById.js': 'taskTreeHelpers.js',
       'getPerspectiveRules.js': 'perspectiveRuleHelpers.js',
       'updatePerspectiveRules.js': 'perspectiveRuleHelpers.js',
+      'batchEditItems.js': 'tagAssignmentHelpers.js',
+      'applyTagsExclusive.js': 'tagAssignmentHelpers.js',
     };
     const helperName = HELPER_BY_SCRIPT[scriptName];
     if (helperName) {

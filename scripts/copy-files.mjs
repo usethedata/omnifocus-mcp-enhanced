@@ -6,6 +6,7 @@ const destination = 'dist/utils/omnifocusScripts';
 const scripts = [
   'applyTagsExclusive.js',
   'batchCompleteTasks.js',
+  'batchEditItems.js',
   'batchMoveTasks.js',
   'batchRemoveItems.js',
   'createProjectFromOutline.js',
@@ -28,6 +29,7 @@ const scripts = [
   'perspectiveRuleHelpers.js',
   'readTaskAttachment.js',
   'setRepetitionRule.js',
+  'tagAssignmentHelpers.js',
   'taskNotifications.js',
   'tasksByTag.js',
   'taskTreeHelpers.js',
