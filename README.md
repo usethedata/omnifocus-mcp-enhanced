@@ -44,10 +44,11 @@ Want to see where the project is heading next? See the [roadmap](https://github.
 
 ## 🆕 Releases
 
-Full notes for every release are on the [Releases page](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases). Current surface: **26 tools (11 with structured output), 6 prompts, 3 resources**.
+Full notes for every release are on the [Releases page](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases). Current surface: **26 tools (16 with structured output), 6 prompts, 3 resources**.
 
 | Version | Date | Highlights |
 | --- | --- | --- |
+| **v2.4.0** | 2026-08-05 | Structured output for the five tools that mint identifiers: `add_omnifocus_task`, `add_project`, `duplicate_task`, `create_project_from_outline`, and `mark_projects_reviewed`. Creating something and then referencing it no longer requires parsing an ID out of a sentence. Each of these tools now also reports an error instead of a success when OmniFocus returns no ID, replacing the `id: undefined` message it used to print |
 | **v2.3.0** | 2026-08-04 | Structured output: 11 tools now return MCP `structuredContent` alongside their text, so an assistant reads stable IDs and per-item outcomes as data instead of parsing prose. Covers every read (`filter_tasks`, `get_tasks`, `get_projects`, `manage_folders`, `manage_tags`), all five batch tools, and `count_tasks`. Rendered text is unchanged |
 | **v2.2.0** | 2026-08-04 | `batch_edit_items` — fields, tags, relative date shifts, and project review cadence across up to 100 tasks or projects in one verified, rollback-safe transaction. Also fixes exclusive tag groups, which never actually dropped a sibling tag, and drops the phantom `fixed` field from review interval output |
 | **v2.1.1** | 2026-08-04 | Due, defer, and planned dates keep their time of day instead of collapsing to midnight |

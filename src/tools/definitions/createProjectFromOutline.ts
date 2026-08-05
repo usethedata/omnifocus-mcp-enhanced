@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   createProjectFromOutline,
+  type CreateProjectFromOutlineResult,
   type ProjectOutline,
 } from '../primitives/createProjectFromOutline.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
@@ -129,6 +130,77 @@ const projectSchema = projectSchemaBase.superRefine((project, context) => {
 
 export const schema = z.object({ project: projectSchema }).strict();
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * The handler already refuses a success without `projectId` and `items`, so
+ * both are required here. `items` carries one entry per created object, which is
+ * what lets an assistant reference any node of the new tree without re-reading
+ * the database.
+ */
+export const outputSchema = z.object({
+  projectId: z.string().describe('Stable OmniFocus ID of the created project'),
+  taskCount: z.number().int().describe('Tasks created beneath the project'),
+  items: z
+    .array(
+      z.object({
+        id: z.string().describe('Stable OmniFocus ID of the created object'),
+        type: z.enum(['project', 'task']),
+        path: z
+          .string()
+          .describe('Position in the outline, e.g. "Launch > Draft outline"'),
+        parentId: z.string().nullable(),
+        verified: z
+          .boolean()
+          .describe('True when the object was read back after creation'),
+      }),
+    )
+    .describe('Every created object, project first'),
+  affectedPaths: z.array(z.string()).optional(),
+});
+
+/**
+ * Maps a primitive result to the tool result. Exported so the mapping — in
+ * particular that `structuredContent` satisfies `outputSchema` — is testable
+ * without reaching OmniFocus.
+ */
+export function buildResult(result: CreateProjectFromOutlineResult) {
+  if (!result.success || !result.projectId || !result.items) {
+    const residual = result.residualProjectId
+      ? `\nResidual project ID: ${result.residualProjectId}`
+      : '';
+    const recovery = result.recovery ? `\nRecovery: ${result.recovery}` : '';
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Failed to create project outline [${result.code || 'CREATE_FAILED'}]: ${result.error || 'Unknown error'}${residual}${recovery}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const lines = result.items.map(
+    (item) => `- ${item.path} (${item.type}: ${item.id})`,
+  );
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: `Created and verified project ${result.projectId} with ${result.taskCount || 0} task(s).\n\n${lines.join('\n')}`,
+      },
+    ],
+    structuredContent: {
+      projectId: result.projectId,
+      taskCount: result.taskCount ?? 0,
+      items: result.items,
+      ...(result.affectedPaths ? { affectedPaths: result.affectedPaths } : {}),
+    },
+  };
+}
+
 export async function handler(
   args: z.infer<typeof schema>,
   _extra: ToolHandlerExtra,
@@ -137,33 +209,7 @@ export async function handler(
     const result = await createProjectFromOutline(
       args.project as ProjectOutline,
     );
-    if (!result.success || !result.projectId || !result.items) {
-      const residual = result.residualProjectId
-        ? `\nResidual project ID: ${result.residualProjectId}`
-        : '';
-      const recovery = result.recovery ? `\nRecovery: ${result.recovery}` : '';
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Failed to create project outline [${result.code || 'CREATE_FAILED'}]: ${result.error || 'Unknown error'}${residual}${recovery}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    const lines = result.items.map(
-      (item) => `- ${item.path} (${item.type}: ${item.id})`,
-    );
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Created and verified project ${result.projectId} with ${result.taskCount || 0} task(s).\n\n${lines.join('\n')}`,
-        },
-      ],
-    };
+    return buildResult(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {

@@ -1,17 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import * as addOmniFocusTask from './addOmniFocusTask.js';
+import * as addProject from './addProject.js';
 import * as batchAddItems from './batchAddItems.js';
 import * as batchCompleteTasks from './batchCompleteTasks.js';
 import * as batchEditItems from './batchEditItems.js';
 import * as batchMoveTasks from './batchMoveTasks.js';
 import * as batchRemoveItems from './batchRemoveItems.js';
 import * as countTasks from './countTasks.js';
+import * as createProjectFromOutline from './createProjectFromOutline.js';
+import * as duplicateTask from './duplicateTask.js';
 import * as filterTasks from './filterTasks.js';
 import * as getProjects from './getProjects.js';
 import * as getTasks from './getTasks.js';
 import * as manageFolders from './manageFolders.js';
 import * as manageTags from './manageTags.js';
+import * as markProjectsReviewed from './markProjectsReviewed.js';
 
 /**
  * The SDK throws when a tool declaring an output schema returns success without
@@ -31,6 +36,11 @@ const MIGRATED = [
   { name: 'get_tasks', module: getTasks },
   { name: 'manage_folders', module: manageFolders },
   { name: 'manage_tags', module: manageTags },
+  { name: 'add_omnifocus_task', module: addOmniFocusTask },
+  { name: 'add_project', module: addProject },
+  { name: 'duplicate_task', module: duplicateTask },
+  { name: 'create_project_from_outline', module: createProjectFromOutline },
+  { name: 'mark_projects_reviewed', module: markProjectsReviewed },
 ];
 
 test('every migrated tool exports an object output schema', () => {
@@ -398,4 +408,312 @@ test('manage_folders output schema covers every action it routes', () => {
 test('the mixed-operation routers reject an action they do not have', () => {
   assert.throws(() => manageTags.outputSchema.parse({ action: 'get' }));
   assert.throws(() => manageFolders.outputSchema.parse({ action: 'search' }));
+});
+
+/**
+ * The identifier-minting group. Every ID here is required rather than mirroring
+ * the optional field on the result interface, because a tool that creates
+ * something and cannot report its ID has not completed its contract. The
+ * handlers route that case to `isError` instead, so the schema never sees it.
+ * See docs/plans/2026-08-05-identifier-minting-output-design.md.
+ */
+
+test('add_omnifocus_task output schema accepts a bare creation', () => {
+  assert.equal(
+    addOmniFocusTask.outputSchema.parse({ taskId: 'task-1' }).taskId,
+    'task-1',
+  );
+});
+
+test('add_omnifocus_task output schema accepts exclusivity and repetition', () => {
+  const parsed = addOmniFocusTask.outputSchema.parse({
+    taskId: 'task-1',
+    removedSiblings: ['Low Energy'],
+    missingTags: [],
+    repetition: {
+      ruleString: 'FREQ=WEEKLY;BYDAY=FR',
+      scheduleType: 'Regularly',
+      anchorDateKey: 'DueDate',
+      catchUpAutomatically: false,
+      nextOccurrence: '2026-08-07T17:00:00.000Z',
+    },
+  });
+  assert.equal(parsed.repetition?.ruleString, 'FREQ=WEEKLY;BYDAY=FR');
+  assert.deepEqual(parsed.removedSiblings, ['Low Energy']);
+});
+
+test('add_omnifocus_task output schema tolerates a null next occurrence', () => {
+  const parsed = addOmniFocusTask.outputSchema.parse({
+    taskId: 'task-1',
+    repetition: { ruleString: 'FREQ=DAILY', nextOccurrence: null },
+  });
+  assert.equal(parsed.repetition?.nextOccurrence, null);
+});
+
+test('add_project output schema accepts a creation with dropped siblings', () => {
+  const parsed = addProject.outputSchema.parse({
+    projectId: 'proj-1',
+    removedSiblings: ['Someday'],
+  });
+  assert.equal(parsed.projectId, 'proj-1');
+});
+
+test('duplicate_task output schema accepts a copy with subtasks', () => {
+  const parsed = duplicateTask.outputSchema.parse({
+    newTaskId: 'task-2',
+    name: 'Draft outline copy',
+    childrenCount: 3,
+  });
+  assert.equal(parsed.childrenCount, 3);
+});
+
+test('duplicate_task output schema accepts a copy reported without a name', () => {
+  assert.equal(
+    duplicateTask.outputSchema.parse({ newTaskId: 'task-2' }).newTaskId,
+    'task-2',
+  );
+});
+
+test('create_project_from_outline output schema accepts a created tree', () => {
+  const parsed = createProjectFromOutline.outputSchema.parse({
+    projectId: 'proj-1',
+    taskCount: 2,
+    items: [
+      {
+        id: 'proj-1',
+        type: 'project',
+        path: 'Launch',
+        parentId: null,
+        verified: true,
+      },
+      {
+        id: 'task-1',
+        type: 'task',
+        path: 'Launch > Draft outline',
+        parentId: 'proj-1',
+        verified: true,
+      },
+    ],
+    affectedPaths: ['Launch'],
+  });
+  assert.equal(parsed.items.length, 2);
+  assert.equal(parsed.items[0].parentId, null);
+});
+
+test('create_project_from_outline output schema rejects an unknown item type', () => {
+  assert.throws(() =>
+    createProjectFromOutline.outputSchema.parse({
+      projectId: 'proj-1',
+      taskCount: 1,
+      items: [
+        {
+          id: 'f-1',
+          type: 'folder',
+          path: 'Launch',
+          parentId: null,
+          verified: true,
+        },
+      ],
+    }),
+  );
+});
+
+test('mark_projects_reviewed output schema accepts a verified review batch', () => {
+  const parsed = markProjectsReviewed.outputSchema.parse({
+    reviewedAt: '2026-08-05T09:00:00.000Z',
+    count: 1,
+    projects: [
+      {
+        id: 'proj-1',
+        name: 'Launch',
+        status: 'Active',
+        lastReviewDate: '2026-08-05T09:00:00.000Z',
+        nextReviewDate: '2026-08-12T09:00:00.000Z',
+        reviewInterval: { steps: 1, unit: 'weeks' },
+        verified: true,
+      },
+    ],
+  });
+  assert.equal(parsed.projects[0].reviewInterval.steps, 1);
+  assert.equal(parsed.count, 1);
+});
+
+test('mark_projects_reviewed output schema requires the verified review dates', () => {
+  // Preflight guarantees these, so a payload missing them is a real defect
+  // rather than a shape the tool is allowed to return.
+  assert.throws(() =>
+    markProjectsReviewed.outputSchema.parse({
+      count: 1,
+      projects: [{ id: 'proj-1', name: 'Launch', status: 'Active' }],
+    }),
+  );
+});
+
+test('every identifier-minting schema rejects a payload missing its ID', () => {
+  assert.throws(() => addOmniFocusTask.outputSchema.parse({}));
+  assert.throws(() => addProject.outputSchema.parse({}));
+  assert.throws(() => duplicateTask.outputSchema.parse({ name: 'Copy' }));
+  assert.throws(() =>
+    createProjectFromOutline.outputSchema.parse({ taskCount: 0, items: [] }),
+  );
+});
+
+/**
+ * The checks above validate hand-written payloads. These validate what the
+ * handlers actually build, which is the drift the SDK would otherwise only
+ * catch on a live call against OmniFocus.
+ */
+
+function assertStructuredMatches(
+  module: { outputSchema: { parse: (value: unknown) => unknown } },
+  result: { structuredContent?: unknown; isError?: boolean },
+) {
+  assert.ok(!result.isError, 'expected a success result');
+  assert.ok(result.structuredContent, 'expected structuredContent');
+  module.outputSchema.parse(result.structuredContent);
+}
+
+test('add_omnifocus_task builds structured content matching its schema', () => {
+  assertStructuredMatches(
+    addOmniFocusTask,
+    addOmniFocusTask.buildResult(
+      { name: 'Draft outline', tags: ['Deep Work'] } as never,
+      {
+        success: true,
+        taskId: 'task-1',
+        removedSiblings: ['Low Energy'],
+        missingTags: [],
+        repetition: {
+          ruleString: 'FREQ=WEEKLY;BYDAY=FR',
+          scheduleType: 'Regularly',
+          anchorDateKey: 'DueDate',
+          catchUpAutomatically: false,
+          nextOccurrence: '2026-08-07T17:00:00.000Z',
+        },
+      },
+    ),
+  );
+});
+
+test('add_project builds structured content matching its schema', () => {
+  assertStructuredMatches(
+    addProject,
+    addProject.buildResult({ name: 'Launch' } as never, {
+      success: true,
+      projectId: 'proj-1',
+      removedSiblings: ['Someday'],
+    }),
+  );
+});
+
+test('duplicate_task builds structured content matching its schema', () => {
+  assertStructuredMatches(
+    duplicateTask,
+    duplicateTask.buildResult({
+      success: true,
+      newTaskId: 'task-2',
+      name: 'Draft outline copy',
+      childrenCount: 3,
+    }),
+  );
+});
+
+test('create_project_from_outline builds structured content matching its schema', () => {
+  assertStructuredMatches(
+    createProjectFromOutline,
+    createProjectFromOutline.buildResult({
+      success: true,
+      projectId: 'proj-1',
+      taskCount: 1,
+      items: [
+        {
+          id: 'proj-1',
+          type: 'project',
+          path: 'Launch',
+          parentId: null,
+          verified: true,
+        },
+        {
+          id: 'task-1',
+          type: 'task',
+          path: 'Launch > Draft outline',
+          parentId: 'proj-1',
+          verified: true,
+        },
+      ],
+      affectedPaths: ['Launch'],
+    }),
+  );
+});
+
+test('mark_projects_reviewed builds structured content matching its schema', () => {
+  assertStructuredMatches(
+    markProjectsReviewed,
+    markProjectsReviewed.buildResult({
+      success: true,
+      reviewedAt: '2026-08-05T09:00:00.000Z',
+      count: 1,
+      projects: [
+        {
+          id: 'proj-1',
+          name: 'Launch',
+          status: 'Active',
+          lastReviewDate: '2026-08-05T09:00:00.000Z',
+          nextReviewDate: '2026-08-12T09:00:00.000Z',
+          reviewInterval: { steps: 1, unit: 'weeks' },
+          verified: true,
+        },
+      ],
+    }),
+  );
+});
+
+/**
+ * The guard that turns a success-without-an-ID into a failure. Both AppleScript
+ * primitives cast an unvalidated field out of parsed JSON, so this path is
+ * reachable; before this release it printed "id: undefined" as a success.
+ */
+
+test('add_omnifocus_task reports an error when OmniFocus returns no task ID', () => {
+  const result = addOmniFocusTask.buildResult({ name: 'Draft outline' } as never, {
+    success: true,
+  });
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent, undefined);
+  assert.match(result.content[0].text, /no task ID/);
+});
+
+test('add_project reports an error when OmniFocus returns no project ID', () => {
+  const result = addProject.buildResult({ name: 'Launch' } as never, {
+    success: true,
+  });
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent, undefined);
+  assert.match(result.content[0].text, /no project ID/);
+});
+
+test('duplicate_task reports an error when OmniFocus returns no copy ID', () => {
+  const result = duplicateTask.buildResult({ success: true, name: 'Copy' });
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent, undefined);
+  assert.match(result.content[0].text, /no ID for the copy/);
+});
+
+test('a failed creation carries no structured content', () => {
+  for (const result of [
+    addOmniFocusTask.buildResult({ name: 'x' } as never, {
+      success: false,
+      error: 'nope',
+    }),
+    addProject.buildResult({ name: 'x' } as never, {
+      success: false,
+      error: 'nope',
+    }),
+    duplicateTask.buildResult({ success: false, error: 'nope' }),
+    createProjectFromOutline.buildResult({ success: false, error: 'nope' }),
+    markProjectsReviewed.buildResult({ success: false, error: 'nope' }),
+  ]) {
+    assert.equal(result.isError, true);
+    assert.equal(result.structuredContent, undefined);
+  }
 });

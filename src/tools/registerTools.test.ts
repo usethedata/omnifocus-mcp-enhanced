@@ -101,17 +101,22 @@ test('registerTools forwards an output schema only for migrated tools', () => {
     .sort();
 
   assert.deepEqual(withSchema, [
+    'add_omnifocus_task',
+    'add_project',
     'batch_add_items',
     'batch_complete_tasks',
     'batch_edit_items',
     'batch_move_tasks',
     'batch_remove_items',
     'count_tasks',
+    'create_project_from_outline',
+    'duplicate_task',
     'filter_tasks',
     'get_projects',
     'get_tasks',
     'manage_folders',
     'manage_tags',
+    'mark_projects_reviewed',
   ]);
 
   for (const call of calls) {

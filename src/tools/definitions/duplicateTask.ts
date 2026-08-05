@@ -27,6 +27,80 @@ export const schema = z.object({
     ),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * `newTaskId` is required; `name` and `childrenCount` stay optional because the
+ * script result carries them alongside the ID and may omit either.
+ */
+export const outputSchema = z.object({
+  newTaskId: z
+    .string()
+    .describe('Stable OmniFocus ID of the duplicated task'),
+  name: z.string().optional().describe('Name of the duplicated task'),
+  childrenCount: z
+    .number()
+    .int()
+    .optional()
+    .describe('Subtasks copied along with the task'),
+});
+
+/**
+ * Maps a primitive result to the tool result. Exported so the mapping — in
+ * particular that `structuredContent` satisfies `outputSchema` — is testable
+ * without reaching OmniFocus.
+ */
+export function buildResult(
+  result: Awaited<ReturnType<typeof duplicateTask>>,
+) {
+  if (result.success && !result.newTaskId) {
+    // The copy may exist, but without an ID it cannot be verified or
+    // referenced, so this is not a usable success.
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: 'Duplicated the task but OmniFocus returned no ID for the copy, so it cannot be verified or referenced. Check OmniFocus before retrying.',
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (result.success && result.newTaskId) {
+    const subtaskText =
+      result.childrenCount && result.childrenCount > 0
+        ? ` with ${result.childrenCount} subtask(s)`
+        : '';
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `✅ Duplicated task as "${result.name}"${subtaskText}.\n\nid: ${result.newTaskId}`,
+        },
+      ],
+      structuredContent: {
+        newTaskId: result.newTaskId,
+        ...(result.name !== undefined ? { name: result.name } : {}),
+        ...(result.childrenCount !== undefined
+          ? { childrenCount: result.childrenCount }
+          : {}),
+      },
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: `Failed to duplicate task: ${result.error}`,
+      },
+    ],
+    isError: true,
+  };
+}
+
 export async function handler(
   args: z.infer<typeof schema>,
   _extra: ToolHandlerExtra,
@@ -45,31 +119,7 @@ export async function handler(
     }
 
     const result = await duplicateTask(args as DuplicateTaskParams);
-
-    if (result.success) {
-      const subtaskText =
-        result.childrenCount && result.childrenCount > 0
-          ? ` with ${result.childrenCount} subtask(s)`
-          : '';
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `✅ Duplicated task as "${result.name}"${subtaskText}.\n\nid: ${result.newTaskId}`,
-          },
-        ],
-      };
-    }
-
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: `Failed to duplicate task: ${result.error}`,
-        },
-      ],
-      isError: true,
-    };
+    return buildResult(result);
   } catch (err: unknown) {
     const error = err as Error;
     console.error(`Tool execution error: ${error.message}`);

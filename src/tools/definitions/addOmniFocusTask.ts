@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   addOmniFocusTask,
   AddOmniFocusTaskParams,
+  type AddOmniFocusTaskResult,
 } from '../primitives/addOmniFocusTask.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
@@ -87,6 +88,126 @@ export const schema = z.object({
     ),
 });
 
+/**
+ * Success shape only. A failure returns `isError: true`, which the SDK exempts
+ * from output validation.
+ *
+ * `taskId` is required: a tool whose job is to mint an identifier has not
+ * completed its contract if it cannot report one, so the handler routes a
+ * missing ID to the error path rather than reporting a success the caller
+ * cannot act on.
+ */
+export const outputSchema = z.object({
+  taskId: z.string().describe('Stable OmniFocus ID of the created task'),
+  removedSiblings: z
+    .array(z.string())
+    .optional()
+    .describe('Tags dropped because they share an exclusive group with a new tag'),
+  missingTags: z
+    .array(z.string())
+    .optional()
+    .describe('Requested tags that do not exist and were not created'),
+  repetition: z
+    .object({
+      ruleString: z.string().optional(),
+      scheduleType: z.string().optional(),
+      anchorDateKey: z.string().optional(),
+      catchUpAutomatically: z.boolean().optional(),
+      nextOccurrence: z.string().nullable().optional(),
+    })
+    .optional()
+    .describe('Recurrence applied and verified after creation'),
+});
+
+/**
+ * Maps a primitive result to the tool result. Exported so the mapping — in
+ * particular that `structuredContent` satisfies `outputSchema` — is testable
+ * without reaching OmniFocus.
+ */
+export function buildResult(
+  args: z.infer<typeof schema>,
+  result: AddOmniFocusTaskResult,
+) {
+  if (result.success && !result.taskId) {
+    // OmniFocus reported success without an ID. The task may exist, but it
+    // cannot be verified or referenced, so this is not a usable success.
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Created task "${args.name}" but OmniFocus returned no task ID, so it cannot be verified or referenced. Check OmniFocus for a task with this name before retrying.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (result.success && result.taskId) {
+    // Task was added successfully
+    let locationText;
+    if (args.parentTaskId || args.parentTaskName) {
+      const parentRef = args.parentTaskId || args.parentTaskName;
+      locationText = `as a subtask of "${parentRef}"`;
+    } else if (args.projectName) {
+      locationText = `in project "${args.projectName}"`;
+    } else {
+      locationText = 'in your inbox';
+    }
+
+    let tagText =
+      args.tags && args.tags.length > 0
+        ? ` with tags: ${args.tags.join(', ')}`
+        : '';
+
+    let dueDateText = args.dueDate
+      ? ` due on ${new Date(args.dueDate).toLocaleDateString()}`
+      : '';
+
+    let plannedDateText = args.plannedDate
+      ? ` planned for ${new Date(args.plannedDate).toLocaleDateString()}`
+      : '';
+
+    let exclusivityText =
+      result.removedSiblings && result.removedSiblings.length > 0
+        ? `\nRemoved mutually exclusive tags: ${result.removedSiblings.join(', ')}`
+        : '';
+    const repetitionText = result.repetition
+      ? `\nRepeats: ${result.repetition.ruleString} (${result.repetition.scheduleType}, anchor ${result.repetition.anchorDateKey})` +
+        (result.repetition.nextOccurrence
+          ? `\nNext occurrence: ${new Date(result.repetition.nextOccurrence).toLocaleString()}`
+          : '')
+      : '';
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `✅ Task "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${tagText}.\n\nid: ${result.taskId}${exclusivityText}${repetitionText}`,
+        },
+      ],
+      structuredContent: {
+        taskId: result.taskId,
+        ...(result.removedSiblings
+          ? { removedSiblings: result.removedSiblings }
+          : {}),
+        ...(result.missingTags ? { missingTags: result.missingTags } : {}),
+        ...(result.repetition ? { repetition: result.repetition } : {}),
+      },
+    };
+  }
+
+  // Task creation failed
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: `Failed to create task${result.code ? ` [${result.code}]` : ''}: ${result.error}`,
+      },
+    ],
+    isError: true,
+  };
+}
+
 export async function handler(
   args: z.infer<typeof schema>,
   extra: ToolHandlerExtra,
@@ -94,63 +215,7 @@ export async function handler(
   try {
     // Call the addOmniFocusTask function
     const result = await addOmniFocusTask(args as AddOmniFocusTaskParams);
-
-    if (result.success) {
-      // Task was added successfully
-      let locationText;
-      if (args.parentTaskId || args.parentTaskName) {
-        const parentRef = args.parentTaskId || args.parentTaskName;
-        locationText = `as a subtask of "${parentRef}"`;
-      } else if (args.projectName) {
-        locationText = `in project "${args.projectName}"`;
-      } else {
-        locationText = 'in your inbox';
-      }
-
-      let tagText =
-        args.tags && args.tags.length > 0
-          ? ` with tags: ${args.tags.join(', ')}`
-          : '';
-
-      let dueDateText = args.dueDate
-        ? ` due on ${new Date(args.dueDate).toLocaleDateString()}`
-        : '';
-
-      let plannedDateText = args.plannedDate
-        ? ` planned for ${new Date(args.plannedDate).toLocaleDateString()}`
-        : '';
-
-      let exclusivityText =
-        result.removedSiblings && result.removedSiblings.length > 0
-          ? `\nRemoved mutually exclusive tags: ${result.removedSiblings.join(', ')}`
-          : '';
-      const repetitionText = result.repetition
-        ? `\nRepeats: ${result.repetition.ruleString} (${result.repetition.scheduleType}, anchor ${result.repetition.anchorDateKey})` +
-          (result.repetition.nextOccurrence
-            ? `\nNext occurrence: ${new Date(result.repetition.nextOccurrence).toLocaleString()}`
-            : '')
-        : '';
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `✅ Task "${args.name}" created successfully ${locationText}${dueDateText}${plannedDateText}${tagText}.\n\nid: ${result.taskId}${exclusivityText}${repetitionText}`,
-          },
-        ],
-      };
-    } else {
-      // Task creation failed
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Failed to create task${result.code ? ` [${result.code}]` : ''}: ${result.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    return buildResult(args, result);
   } catch (err: unknown) {
     const error = err as Error;
     console.error(`Tool execution error: ${error.message}`);

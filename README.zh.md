@@ -40,10 +40,11 @@ OmniFocus 本身已经很强了，但它大多数时候仍然是一个需要你�
 
 ## 🆕 版本发布
 
-每个版本的完整说明见 [Releases 页面](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases)。当前工具面：**26 个工具（其中 11 个带结构化输出）、6 个 Prompts、3 个 Resources**。
+每个版本的完整说明见 [Releases 页面](https://github.com/jqlts1/omnifocus-mcp-enhanced/releases)。当前工具面：**26 个工具（其中 16 个带结构化输出）、6 个 Prompts、3 个 Resources**。
 
 | 版本 | 日期 | 主要变化 |
 | --- | --- | --- |
+| **v2.4.0** | 2026-08-05 | 五个「生成新 ID」的工具补上结构化输出：`add_omnifocus_task`、`add_project`、`duplicate_task`、`create_project_from_outline`、`mark_projects_reviewed`。创建之后再引用，不必再从句子里解析 ID。这几个工具在 OmniFocus 没有返回 ID 时也改为报错而非报成功，取代原先输出的 `id: undefined` |
 | **v2.3.0** | 2026-08-04 | 结构化输出：11 个工具在文本之外同时返回 MCP `structuredContent`，助手可以直接读到稳定 ID 和逐项结果，不必再解析散文。覆盖全部读取工具（`filter_tasks`、`get_tasks`、`get_projects`、`manage_folders`、`manage_tags`）、五个批量工具和 `count_tasks`。渲染文本保持不变 |
 | **v2.2.0** | 2026-08-04 | `batch_edit_items`——单次验证事务内批量修改最多 100 个任务或项目的字段、标签、相对日期偏移和项目复习周期，失败回滚。同时修复互斥标签组（此前从未真正移除过冲突的同组标签），并移除复习间隔输出中恒为 false 的 `fixed` 字段 |
 | **v2.1.1** | 2026-08-04 | 截止、推迟、计划日期保留具体时间，不再塌缩到零点 |
