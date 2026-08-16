@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 
 import * as addOmniFocusTask from './addOmniFocusTask.js';
 import * as addProject from './addProject.js';
@@ -17,6 +18,14 @@ import * as getTasks from './getTasks.js';
 import * as manageFolders from './manageFolders.js';
 import * as manageTags from './manageTags.js';
 import * as markProjectsReviewed from './markProjectsReviewed.js';
+
+const require = createRequire(import.meta.url);
+const { toJsonSchemaCompat } = require(
+  '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js',
+);
+const { AjvJsonSchemaValidator } = require(
+  '@modelcontextprotocol/sdk/validation/ajv',
+);
 
 /**
  * The SDK throws when a tool declaring an output schema returns success without
@@ -42,6 +51,17 @@ const MIGRATED = [
   { name: 'create_project_from_outline', module: createProjectFromOutline },
   { name: 'mark_projects_reviewed', module: markProjectsReviewed },
 ];
+
+const mcpOutputValidator = new AjvJsonSchemaValidator();
+
+function assertMcpOutputMatches(schema: unknown, structuredContent: unknown): void {
+  const jsonSchema = toJsonSchemaCompat(schema, {
+    strictUnions: true,
+    pipeStrategy: 'output',
+  });
+  const result = mcpOutputValidator.getValidator(jsonSchema)(structuredContent);
+  assert.equal(result.valid, true, result.errorMessage);
+}
 
 test('every migrated tool exports an object output schema', () => {
   for (const { name, module } of MIGRATED) {
@@ -237,6 +257,24 @@ test('filter_tasks output schema accepts a task carrying only id and name', () =
   assert.equal(parsed.tasks[0].name, 'Bare');
 });
 
+test('filter_tasks MCP output schema accepts the real filter serializer fields', () => {
+  assertMcpOutputMatches(filterTasks.outputSchema, {
+    tasks: [
+      {
+        id: 'task-1',
+        name: 'Filtered task',
+        completedDate: null,
+        createdDate: '2026-07-01T09:00:00.000Z',
+        modifiedDate: '2026-08-01T09:00:00.000Z',
+      },
+    ],
+    matchedCount: 1,
+    totalCount: 1,
+    hasMore: false,
+    nextCursor: null,
+  });
+});
+
 test('get_tasks output schema accepts every source', () => {
   const base = { tasks: [{ id: 't', name: 'T' }], count: 1 };
 
@@ -270,6 +308,16 @@ test('get_tasks output schema accepts every source', () => {
     totalCount: 12,
   });
   assert.equal(custom.totalCount, 12);
+});
+
+test('get_tasks MCP output schema accepts forecast due annotations', () => {
+  const task = { id: 'task-1', name: 'Forecast task', isDue: true };
+  assertMcpOutputMatches(getTasks.outputSchema, {
+    source: 'forecast',
+    count: 1,
+    tasks: [task],
+    groups: [{ date: '2026-08-04', tasks: [task] }],
+  });
 });
 
 test('get_tasks output schema rejects an unknown source', () => {
@@ -334,6 +382,50 @@ test('get_projects output schema accepts a project without review data', () => {
     projects: [{ id: 'p', name: 'Bare' }],
   });
   assert.equal(parsed.projects[0].name, 'Bare');
+});
+
+test('get_projects MCP output schema accepts every OmniJS project field', () => {
+  assertMcpOutputMatches(getProjects.outputSchema, {
+    view: 'all',
+    count: 1,
+    projects: [
+      {
+        id: 'project-1',
+        name: 'Launch',
+        status: 'Active',
+        folderName: 'Work',
+        folderID: 'folder-1',
+        sequential: false,
+        dueDate: null,
+        deferDate: null,
+        effectiveDueDate: null,
+        effectiveDeferDate: null,
+        completedByChildren: false,
+        containsSingletonActions: false,
+        note: '',
+        taskCount: 0,
+        flagged: false,
+        nextReviewDate: null,
+        lastReviewDate: null,
+        reviewInterval: { steps: 1, unit: 'weeks' },
+      },
+    ],
+  });
+});
+
+test('shared read schemas tolerate additive OmniJS serializer fields', () => {
+  assertMcpOutputMatches(filterTasks.outputSchema, {
+    tasks: [{ id: 'task-1', name: 'Task', futureTaskField: true }],
+    matchedCount: 1,
+    totalCount: 1,
+    hasMore: false,
+    nextCursor: null,
+  });
+  assertMcpOutputMatches(getProjects.outputSchema, {
+    view: 'all',
+    count: 1,
+    projects: [{ id: 'project-1', name: 'Project', futureProjectField: true }],
+  });
 });
 
 test('manage_tags output schema covers every action it routes', () => {

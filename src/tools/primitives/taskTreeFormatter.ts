@@ -21,6 +21,8 @@ export interface TaskTreeNode {
   parentId?: string | null;
   inInbox?: boolean;
   isRepeating?: boolean;
+  // Forecast reads annotate whether the group date came from the due date.
+  isDue?: boolean;
   tags?: TaskTag[];
   // Present only on the custom-perspective read, which serializes its own node
   // type. Optional here so every task-shaped read returns one shape.
@@ -28,6 +30,10 @@ export interface TaskTreeNode {
   dropped?: boolean;
   completionDate?: string | null;
   creationDate?: string | null;
+  // Filter reads expose these names for their completion/creation/modification filters.
+  completedDate?: string | null;
+  createdDate?: string | null;
+  modifiedDate?: string | null;
   childrenCount?: number;
   children?: TaskTreeNode[];
   childrenTruncated?: boolean;

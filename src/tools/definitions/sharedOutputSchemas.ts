@@ -43,11 +43,15 @@ export const taskNodeSchema: z.ZodType<TaskNodeShape> = z.lazy(() =>
     parentId: z.string().nullable().optional(),
     inInbox: z.boolean().optional(),
     isRepeating: z.boolean().optional(),
+    isDue: z.boolean().optional(),
     tags: z.array(taskTagSchema).optional(),
     completed: z.boolean().optional(),
     dropped: z.boolean().optional(),
     completionDate: z.string().nullable().optional(),
     creationDate: z.string().nullable().optional(),
+    completedDate: z.string().nullable().optional(),
+    createdDate: z.string().nullable().optional(),
+    modifiedDate: z.string().nullable().optional(),
     childrenCount: z
       .number()
       .optional()
@@ -57,7 +61,7 @@ export const taskNodeSchema: z.ZodType<TaskNodeShape> = z.lazy(() =>
       .boolean()
       .optional()
       .describe('True when expansion hit the node cap and stopped early'),
-  }),
+  }).passthrough(),
 );
 
 export interface TaskNodeShape {
@@ -75,6 +79,7 @@ export interface TaskNodeShape {
   parentId?: string | null;
   inInbox?: boolean;
   isRepeating?: boolean;
+  isDue?: boolean;
   tags?: Array<{
     id?: string;
     name: string;
@@ -85,6 +90,9 @@ export interface TaskNodeShape {
   dropped?: boolean;
   completionDate?: string | null;
   creationDate?: string | null;
+  completedDate?: string | null;
+  createdDate?: string | null;
+  modifiedDate?: string | null;
   childrenCount?: number;
   children?: TaskNodeShape[];
   childrenTruncated?: boolean;
@@ -105,15 +113,22 @@ export const projectSchema = z
     name: z.string(),
     status: z.string().optional(),
     folderName: z.string().nullable().optional(),
+    folderID: z.string().nullable().optional(),
+    sequential: z.boolean().optional(),
     note: z.string().optional(),
     taskCount: z.number().optional(),
     flagged: z.boolean().optional(),
     dueDate: z.string().nullable().optional(),
     deferDate: z.string().nullable().optional(),
+    effectiveDueDate: z.string().nullable().optional(),
+    effectiveDeferDate: z.string().nullable().optional(),
+    completedByChildren: z.boolean().optional(),
+    containsSingletonActions: z.boolean().optional(),
     nextReviewDate: z.string().nullable().optional(),
     lastReviewDate: z.string().nullable().optional(),
     reviewInterval: reviewIntervalSchema.nullable().optional(),
   })
+  .passthrough()
   .describe('A project as returned by the project reads');
 
 /** Field names follow OmniFocusTagSummary in primitives/listTags.ts. */

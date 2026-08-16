@@ -12,11 +12,17 @@ export interface ProjectSummary {
   name: string;
   status?: string;
   folderName?: string | null;
+  folderID?: string | null;
+  sequential?: boolean;
   note?: string;
   taskCount?: number;
   flagged?: boolean;
   dueDate?: string | null;
   deferDate?: string | null;
+  effectiveDueDate?: string | null;
+  effectiveDeferDate?: string | null;
+  completedByChildren?: boolean;
+  containsSingletonActions?: boolean;
   nextReviewDate?: string | null;
   lastReviewDate?: string | null;
   reviewInterval?: { steps: number; unit: string } | null;
