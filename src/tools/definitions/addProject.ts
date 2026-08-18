@@ -3,22 +3,22 @@ import { addProject, AddProjectParams } from '../primitives/addProject.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  name: z.string().describe('The name of the project'),
-  note: z.string().optional().describe('Additional notes for the project'),
+  name: z.string().max(1000).describe('The name of the project'),
+  note: z.string().max(10000).optional().describe('Additional notes for the project'),
   dueDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The due date of the project in ISO format (YYYY-MM-DD or full ISO date)',
     ),
   deferDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The defer date of the project in ISO format (YYYY-MM-DD or full ISO date)',
     ),
   plannedDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The planned date of the project in ISO format (YYYY-MM-DD or full ISO date)',
@@ -32,7 +32,7 @@ export const schema = z.object({
     .optional()
     .describe('Estimated time to complete the project, in minutes'),
   tags: z
-    .array(z.string())
+    .array(z.string().max(200)).max(50)
     .optional()
     .describe('Tags to assign to the project'),
   exclusiveTags: z
@@ -42,7 +42,7 @@ export const schema = z.object({
       'Respect mutually exclusive tag groups when applying tags (default: true). When a tag belongs to an exclusive group, sibling tags from that group are removed.',
     ),
   folderName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the folder to add the project to (will add to root if not specified)',

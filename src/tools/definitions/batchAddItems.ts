@@ -12,20 +12,20 @@ export const schema = z.object({
         type: z
           .enum(['task', 'project'])
           .describe("Type of item to add ('task' or 'project')"),
-        name: z.string().describe('The name of the item'),
-        note: z.string().optional().describe('Additional notes for the item'),
+        name: z.string().max(1000).describe('The name of the item'),
+        note: z.string().max(10000).optional().describe('Additional notes for the item'),
         dueDate: z
-          .string()
+          .string().max(50)
           .optional()
           .describe('The due date in ISO format (YYYY-MM-DD or full ISO date)'),
         deferDate: z
-          .string()
+          .string().max(50)
           .optional()
           .describe(
             'The defer date in ISO format (YYYY-MM-DD or full ISO date)',
           ),
         plannedDate: z
-          .string()
+          .string().max(50)
           .optional()
           .describe(
             'The planned date in ISO format (YYYY-MM-DD or full ISO date)',
@@ -39,25 +39,25 @@ export const schema = z.object({
           .optional()
           .describe('Estimated time to complete the item, in minutes'),
         tags: z
-          .array(z.string())
+          .array(z.string().max(200)).max(50)
           .optional()
           .describe('Tags to assign to the item'),
 
         // Task-specific properties
         projectName: z
-          .string()
+          .string().max(1000)
           .optional()
           .describe(
             'For tasks: The project name for top-level tasks. Omit this when parentTaskId or parentTaskName is set.',
           ),
         parentTaskId: z
-          .string()
+          .string().max(200)
           .optional()
           .describe(
             'For tasks: The parent task ID for subtasks. When this is set, do not also provide projectName.',
           ),
         parentTaskName: z
-          .string()
+          .string().max(1000)
           .optional()
           .describe(
             'For tasks: The parent task name for subtasks. Subtasks inherit project from their parent, so do not also provide projectName.',
@@ -65,7 +65,7 @@ export const schema = z.object({
 
         // Project-specific properties
         folderName: z
-          .string()
+          .string().max(1000)
           .optional()
           .describe(
             'For projects: The name of the folder to add the project to',
@@ -78,6 +78,7 @@ export const schema = z.object({
           ),
       }),
     )
+    .max(100)
     .describe('Array of items (tasks or projects) to add'),
 });
 

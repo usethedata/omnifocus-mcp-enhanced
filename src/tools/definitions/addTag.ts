@@ -3,9 +3,9 @@ import { addTag, AddTagParams } from '../primitives/addTag.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  name: z.string().describe('The name of the tag'),
+  name: z.string().max(1000).describe('The name of the tag'),
   parentTagName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the parent tag to nest this tag under (created at the root level if not specified)',

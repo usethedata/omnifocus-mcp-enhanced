@@ -6,9 +6,9 @@ import {
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  id: z.string().optional().describe('The ID of the task or project'),
+  id: z.string().max(200).optional().describe('The ID of the task or project'),
   name: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the task or project (as fallback if ID not provided)',
@@ -16,9 +16,9 @@ export const schema = z.object({
   itemType: z
     .enum(['task', 'project'])
     .describe("Type of item whose note to append to ('task' or 'project')"),
-  text: z.string().describe('The text to append to the existing note'),
+  text: z.string().max(10000).describe('The text to append to the existing note'),
   separator: z
-    .string()
+    .string().max(100)
     .optional()
     .describe(
       'Separator inserted between the existing note and the new text (default: a newline). Pass an empty string to append with no separator.',

@@ -3,9 +3,9 @@ import { removeItem, RemoveItemParams } from '../primitives/removeItem.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  id: z.string().optional().describe('The ID of the task or project to remove'),
+  id: z.string().max(200).optional().describe('The ID of the task or project to remove'),
   name: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the task or project to remove (as fallback if ID not provided)',

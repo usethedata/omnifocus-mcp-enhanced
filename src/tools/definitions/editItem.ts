@@ -3,9 +3,9 @@ import { editItem, EditItemParams } from '../primitives/editItem.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  id: z.string().optional().describe('The ID of the task or project to edit'),
+  id: z.string().max(200).optional().describe('The ID of the task or project to edit'),
   name: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the task or project to edit (as fallback if ID not provided)',
@@ -15,22 +15,22 @@ export const schema = z.object({
     .describe("Type of item to edit ('task' or 'project')"),
 
   // Common editable fields
-  newName: z.string().optional().describe('New name for the item'),
-  newNote: z.string().optional().describe('New note for the item'),
+  newName: z.string().max(1000).optional().describe('New name for the item'),
+  newNote: z.string().max(10000).optional().describe('New note for the item'),
   newDueDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'New due date in ISO format (YYYY-MM-DD or full ISO date); set to empty string to clear',
     ),
   newDeferDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'New defer date in ISO format (YYYY-MM-DD or full ISO date); set to empty string to clear',
     ),
   newPlannedDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'New planned date in ISO format (YYYY-MM-DD or full ISO date); set to empty string to clear',
@@ -46,13 +46,13 @@ export const schema = z.object({
     .enum(['incomplete', 'completed', 'dropped'])
     .optional()
     .describe('New status for tasks (incomplete, completed, dropped)'),
-  addTags: z.array(z.string()).optional().describe('Tags to add to the task'),
+  addTags: z.array(z.string().max(200)).max(50).optional().describe('Tags to add to the task'),
   removeTags: z
-    .array(z.string())
+    .array(z.string().max(200)).max(50)
     .optional()
     .describe('Tags to remove from the task'),
   replaceTags: z
-    .array(z.string())
+    .array(z.string().max(200)).max(50)
     .optional()
     .describe('Tags to replace all existing tags with'),
   exclusiveTags: z
@@ -62,21 +62,21 @@ export const schema = z.object({
       'Respect mutually exclusive tag groups when adding/replacing tags (default: true). When a tag belongs to an exclusive group, sibling tags from that group are removed.',
     ),
   newProjectId: z
-    .string()
+    .string().max(200)
     .optional()
     .describe('For tasks: move task to this project ID'),
   newProjectName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'For tasks: move task to this project name (errors on duplicate names)',
     ),
   newParentTaskId: z
-    .string()
+    .string().max(200)
     .optional()
     .describe('For tasks: move task under this parent task ID'),
   newParentTaskName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'For tasks: move task under this parent task name (errors on duplicate names)',
@@ -89,7 +89,7 @@ export const schema = z.object({
     .optional()
     .describe('Whether the project should be sequential'),
   newFolderName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe('New folder to move the project to'),
   newProjectStatus: z

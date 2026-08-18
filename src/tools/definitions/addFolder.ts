@@ -3,9 +3,9 @@ import { addFolder, AddFolderParams } from '../primitives/addFolder.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  name: z.string().describe('The name of the folder'),
+  name: z.string().max(1000).describe('The name of the folder'),
   parentFolderName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the parent folder to nest this folder under (created at the root level if not specified)',

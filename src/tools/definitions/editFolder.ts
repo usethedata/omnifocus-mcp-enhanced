@@ -3,16 +3,16 @@ import { editFolder, EditFolderParams } from '../primitives/editFolder.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  id: z.string().optional().describe('The ID of the folder to edit'),
+  id: z.string().max(200).optional().describe('The ID of the folder to edit'),
   name: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the folder to edit (as fallback if ID not provided)',
     ),
-  newName: z.string().optional().describe('New name for the folder'),
+  newName: z.string().max(1000).optional().describe('New name for the folder'),
   newParentFolderName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'Move the folder under this parent folder. Use an empty string "" to move it to the root level.',

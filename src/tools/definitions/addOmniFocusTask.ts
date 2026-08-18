@@ -7,22 +7,22 @@ import {
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  name: z.string().describe('The name of the task'),
-  note: z.string().optional().describe('Additional notes for the task'),
+  name: z.string().max(1000).describe('The name of the task'),
+  note: z.string().max(10000).optional().describe('Additional notes for the task'),
   dueDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The due date of the task in ISO format (YYYY-MM-DD or full ISO date)',
     ),
   deferDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The defer date of the task in ISO format (YYYY-MM-DD or full ISO date)',
     ),
   plannedDate: z
-    .string()
+    .string().max(50)
     .optional()
     .describe(
       'The planned date of the task in ISO format (YYYY-MM-DD or full ISO date)',
@@ -35,7 +35,7 @@ export const schema = z.object({
     .number()
     .optional()
     .describe('Estimated time to complete the task, in minutes'),
-  tags: z.array(z.string()).optional().describe('Tags to assign to the task'),
+  tags: z.array(z.string().max(200)).max(50).optional().describe('Tags to assign to the task'),
   exclusiveTags: z
     .boolean()
     .optional()
@@ -43,17 +43,17 @@ export const schema = z.object({
       'Respect mutually exclusive tag groups when applying tags (default: true). When a tag belongs to an exclusive group, sibling tags from that group are removed.',
     ),
   projectName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the project to add the task to (will add to inbox if not specified)',
     ),
   parentTaskId: z
-    .string()
+    .string().max(200)
     .optional()
     .describe('The ID of the parent task to create this task as a subtask'),
   parentTaskName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'The name of the parent task to create this task as a subtask (alternative to parentTaskId)',
@@ -61,7 +61,7 @@ export const schema = z.object({
   repetition: z
     .object({
       ruleString: z
-        .string()
+        .string().max(500)
         .min(1)
         .describe(
           'ICS recurrence rule, e.g. FREQ=WEEKLY;BYDAY=FR. Encode UNTIL/COUNT here.',

@@ -3,12 +3,12 @@ import { editTag, EditTagParams } from '../primitives/editTag.js';
 import type { ToolHandlerExtra } from './toolHandler.js';
 
 export const schema = z.object({
-  id: z.string().optional().describe('The ID of the tag to edit'),
+  id: z.string().max(200).optional().describe('The ID of the tag to edit'),
   name: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe('The name of the tag to edit (as fallback if ID not provided)'),
-  newName: z.string().optional().describe('New name for the tag'),
+  newName: z.string().max(1000).optional().describe('New name for the tag'),
   newStatus: z
     .enum(['active', 'onHold', 'dropped'])
     .optional()
@@ -16,7 +16,7 @@ export const schema = z.object({
       "New status: 'active' (available), 'onHold' (does not allow next actions), or 'dropped' (hidden)",
     ),
   newParentTagName: z
-    .string()
+    .string().max(1000)
     .optional()
     .describe(
       'Move the tag under this parent tag. Use an empty string "" to move it to the root level.',
