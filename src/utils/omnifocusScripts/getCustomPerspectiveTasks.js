@@ -12,18 +12,18 @@
     perspectiveName = injectedArgs && injectedArgs.perspectiveName ? injectedArgs.perspectiveName : null;
 
     if (!perspectiveName) {
-      throw new Error("透视名称不能为空");
+      throw new Error("Perspective name cannot be empty");
     }
 
     // 通过名称获取自定义透视
     targetPerspective = Perspective.Custom.byName(perspectiveName);
     if (!targetPerspective) {
-      throw new Error(`未找到名为 "${perspectiveName}" 的自定义透视`);
+      throw new Error(`No custom perspective found named "${perspectiveName}"`);
     }
 
     window = document.windows[0];
     if (!window) {
-      throw new Error("OmniFocus 没有可用窗口");
+      throw new Error("OmniFocus has no available window");
     }
 
     originalPerspective = window.perspective;

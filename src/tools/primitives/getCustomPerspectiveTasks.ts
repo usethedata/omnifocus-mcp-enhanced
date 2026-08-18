@@ -57,7 +57,7 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
   } = options;
 
   if (!perspectiveName) {
-    return { tasks: [], totalCount: 0, text: '❌ **错误**: 透视名称不能为空' };
+    return { tasks: [], totalCount: 0, text: '❌ **Error**: Perspective name cannot be empty' };
   }
 
   try {
@@ -73,7 +73,7 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
     const allTasks = Object.values(data.taskMap || {}) as any[];
     const tree = buildPerspectiveTaskTree(allTasks, {
       hideCompleted,
-      inboxLabel: '收件箱'
+      inboxLabel: 'Inbox'
     });
 
     const totalCount = data.count || tree.flatTasks.length;
@@ -83,7 +83,7 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
       return {
         tasks: [],
         totalCount,
-        text: `**透视任务：${perspectiveName}**\n\n暂无${hideCompleted ? '未完成' : ''}任务。`,
+        text: `**Perspective tasks: ${perspectiveName}**\n\nNo ${hideCompleted ? 'incomplete ' : ''}tasks.`,
       };
     }
 
@@ -113,7 +113,7 @@ export async function getCustomPerspectiveTasks(options: GetCustomPerspectiveTas
     return {
       tasks: [],
       totalCount: 0,
-      text: `❌ **错误**: ${error instanceof Error ? error.message : String(error)}`,
+      text: `❌ **Error**: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
@@ -123,7 +123,7 @@ function parseScriptResult(result: unknown): any {
     try {
       return JSON.parse(result);
     } catch (_error) {
-      throw new Error(`解析字符串结果失败: ${result}`);
+      throw new Error(`Failed to parse string result: ${result}`);
     }
   }
 
@@ -131,7 +131,7 @@ function parseScriptResult(result: unknown): any {
     return result;
   }
 
-  throw new Error(`脚本执行返回了无效的结果类型: ${typeof result}, 值: ${result}`);
+  throw new Error(`Script execution returned an invalid result type: ${typeof result}, value: ${result}`);
 }
 
 function formatProjectTree(
@@ -141,12 +141,12 @@ function formatProjectTree(
   totalCount: number
 ): string {
   const lines: string[] = [];
-  lines.push(`## 透视任务：${perspectiveName}`);
+  lines.push(`## Perspective tasks: ${perspectiveName}`);
   lines.push('');
-  lines.push(`**模式：项目树** · 可见任务 ${visibleCount}`);
+  lines.push(`**Mode: project tree** · ${visibleCount} visible`);
 
   groups.forEach((group) => {
-    const heading = group.projectName === '收件箱' ? '### 📥 收件箱' : `### 📁 ${group.projectName}`;
+    const heading = group.projectName === 'Inbox' ? '### 📥 Inbox' : `### 📁 ${group.projectName}`;
     lines.push('');
     lines.push(heading);
     lines.push('');
@@ -155,7 +155,7 @@ function formatProjectTree(
 
   if (totalCount > visibleCount) {
     lines.push('');
-    lines.push(`💡 共找到 ${totalCount} 个任务，当前显示 ${visibleCount} 个。`);
+    lines.push(`💡 Found ${totalCount} tasks, showing ${visibleCount}.`);
   }
 
   return lines.join('\n');
@@ -168,15 +168,15 @@ function formatTaskTree(
   totalCount: number
 ): string {
   const lines: string[] = [];
-  lines.push(`## 透视任务：${perspectiveName}`);
+  lines.push(`## Perspective tasks: ${perspectiveName}`);
   lines.push('');
-  lines.push(`**模式：任务树** · 可见任务 ${visibleCount}`);
+  lines.push(`**Mode: task tree** · ${visibleCount} visible`);
   lines.push('');
   renderTaskNodes(rootTasks, lines, '', true);
 
   if (totalCount > visibleCount) {
     lines.push('');
-    lines.push(`💡 共找到 ${totalCount} 个任务，当前显示 ${visibleCount} 个。`);
+    lines.push(`💡 Found ${totalCount} tasks, showing ${visibleCount}.`);
   }
 
   return lines.join('\n');
@@ -191,9 +191,9 @@ function formatFlatTasks(
   const displayTasks = limit > 0 ? tasks.slice(0, limit) : tasks;
 
   const lines: string[] = [];
-  lines.push(`## 透视任务：${perspectiveName}`);
+  lines.push(`## Perspective tasks: ${perspectiveName}`);
   lines.push('');
-  lines.push(`**模式：平铺列表** · 显示 ${displayTasks.length} / ${tasks.length}`);
+  lines.push(`**Mode: flat list** · showing ${displayTasks.length} / ${tasks.length}`);
   lines.push('');
 
   displayTasks.forEach((task, index) => {
@@ -205,7 +205,7 @@ function formatFlatTasks(
   });
 
   if (totalCount > displayTasks.length) {
-    lines.push(`💡 共找到 ${totalCount} 个任务，当前显示 ${displayTasks.length} 个。`);
+    lines.push(`💡 Found ${totalCount} tasks, showing ${displayTasks.length}.`);
   }
 
   return lines.join('\n').trimEnd();
@@ -233,7 +233,7 @@ function renderTaskNodes(
     }
 
     if (ancestry.has(task.id)) {
-      lines.push(detailPrefix + '⚠️ 检测到循环引用，已停止展开');
+      lines.push(detailPrefix + '⚠️ Circular reference detected; stopped expanding');
       return;
     }
 
@@ -254,28 +254,28 @@ function formatTaskDetails(task: PerspectiveTaskNode, includeProject: boolean): 
   const details: string[] = [];
 
   if (includeProject && task.projectName) {
-    details.push(`项目: ${task.projectName}`);
+    details.push(`Project: ${task.projectName}`);
   }
 
   if (task.dueDate) {
-    details.push(`截止: ${formatDate(task.dueDate)}`);
+    details.push(`Due: ${formatDate(task.dueDate)}`);
   }
 
   if (task.deferDate) {
-    details.push(`推迟: ${formatDate(task.deferDate)}`);
+    details.push(`Defer: ${formatDate(task.deferDate)}`);
   }
 
   if (task.plannedDate) {
-    details.push(`计划: ${formatDate(task.plannedDate)}`);
+    details.push(`Planned: ${formatDate(task.plannedDate)}`);
   }
 
   if (typeof task.estimatedMinutes === 'number') {
     const hours = Math.floor(task.estimatedMinutes / 60);
     const minutes = task.estimatedMinutes % 60;
     if (hours > 0) {
-      details.push(`预估: ${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`);
+      details.push(`Estimate: ${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`);
     } else {
-      details.push(`预估: ${minutes}m`);
+      details.push(`Estimate: ${minutes}m`);
     }
   }
 
@@ -283,7 +283,7 @@ function formatTaskDetails(task: PerspectiveTaskNode, includeProject: boolean): 
   if (note.length > 0) {
     const noteLines = note.split(/\r?\n/);
     noteLines.forEach((line, index) => {
-      details.push(index === 0 ? `备注: ${line}` : `      ${line}`);
+      details.push(index === 0 ? `Note: ${line}` : `      ${line}`);
     });
   }
 

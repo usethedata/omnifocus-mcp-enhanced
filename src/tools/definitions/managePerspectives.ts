@@ -22,7 +22,7 @@ const refSchema = z
       .min(1)
       .optional()
       .describe(
-        'Display name, resolved when no id is given. Tags accept a full path such as "团队 / 守一". Ambiguous names are rejected.',
+        'Display name, resolved when no id is given. Tags accept a full path such as "Work / Deep Focus". Ambiguous names are rejected.',
       ),
   })
   .strict();

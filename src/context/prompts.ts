@@ -432,10 +432,10 @@ planning contract:
    unless they are clearly independent outcomes.
 
 output these four sections in this order and do not add other planning sections:
-1. 今日重点
-2. 可执行下一步
-3. 阻塞项
-4. 容量/截止风险
+1. Today's Focus
+2. Actionable Next Steps
+3. Blockers
+4. Capacity / Deadline Risk
 
 capacity rules:
 - available capacity: ${capacity}.
@@ -443,10 +443,10 @@ capacity rules:
 - list selected tasks without estimates as uncertainty; never treat a missing estimate as zero.
 - when capacity is unknown, report qualitative risk and ask for available time only if it would materially change the plan.
 - the detail limit is ${planning.detailLimitPerSource} tasks per source. if missing_detail_sources or
-  truncated_detail_sources is non-empty, disclose incomplete coverage in 容量/截止风险.
+  truncated_detail_sources is non-empty, disclose incomplete coverage in Capacity / Deadline Risk.
 
 change rules:
-- at the end of 容量/截止风险, summarize any proposed OmniFocus changes and include one readable confirmation request.
+- at the end of Capacity / Deadline Risk, summarize any proposed OmniFocus changes and include one readable confirmation request.
 - if no changes are proposed, do not ask for confirmation.
 - do not change flags, dates, estimates, or task placement until the user explicitly confirms.
 - after confirmation, use existing narrow tools and report affected stable ids.

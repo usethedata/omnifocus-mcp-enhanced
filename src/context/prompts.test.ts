@@ -54,10 +54,10 @@ test('daily review prompt encodes the four sections and capacity contract', asyn
   }));
 
   assert.match(prompt, /exactly three priorities/);
-  assert.match(prompt, /今日重点/);
-  assert.match(prompt, /可执行下一步/);
-  assert.match(prompt, /阻塞项/);
-  assert.match(prompt, /容量\/截止风险/);
+  assert.match(prompt, /Today's Focus/);
+  assert.match(prompt, /Actionable Next Steps/);
+  assert.match(prompt, /Blockers/);
+  assert.match(prompt, /Capacity \/ Deadline Risk/);
   assert.match(prompt, /180 minutes/);
   assert.match(prompt, /never treat a missing estimate as zero/);
   assert.match(prompt, /plannedToday/);
