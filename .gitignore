@@ -58,6 +58,5 @@ generate_*.js
 /.mcp.json
 
 # Personal files and reports
-CLAUDE.md
 *报告*.md
 个人文档/
