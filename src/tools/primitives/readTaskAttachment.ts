@@ -88,7 +88,17 @@ async function readLinkedAttachment(attachment: TaskAttachmentInfo): Promise<Rea
     };
   }
 
-  const buffer = await readFile(resolveLinkedAttachmentPath(attachment.url));
+  let filePath: string;
+  try {
+    filePath = resolveLinkedAttachmentPath(attachment.url);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Attachment path is not readable'
+    };
+  }
+
+  const buffer = await readFile(filePath);
 
   return {
     success: true,

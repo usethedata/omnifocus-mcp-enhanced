@@ -19,6 +19,27 @@ test('resolveLinkedAttachmentPath rejects files outside the user home directory'
   );
 });
 
+test('resolveLinkedAttachmentPath rejects traversal out of the home directory', () => {
+  assert.throws(
+    () => resolveLinkedAttachmentPath('file:///Users/example/../../etc/passwd', '/Users/example', identity),
+    /inside the user home directory/
+  );
+});
+
+test('resolveLinkedAttachmentPath rejects the home directory itself', () => {
+  assert.throws(
+    () => resolveLinkedAttachmentPath('file:///Users/example', '/Users/example', identity),
+    /inside the user home directory/
+  );
+});
+
+test('resolveLinkedAttachmentPath rejects a sibling directory with the home path as a prefix', () => {
+  assert.throws(
+    () => resolveLinkedAttachmentPath('file:///Users/example-other/secret.txt', '/Users/example', identity),
+    /inside the user home directory/
+  );
+});
+
 test('resolveLinkedAttachmentPath rejects non-file URLs', () => {
   assert.throws(
     () => resolveLinkedAttachmentPath('https://example.com/task.txt', '/Users/example', identity),

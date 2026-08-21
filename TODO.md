@@ -25,21 +25,6 @@ projects, which currently uses JXA via Control your Mac to enumerate them.
 
 ## Open — local fork maintenance
 
-### Narrow i18n re-application
-
-Upstream still ships Chinese in ~16 source files and keeps adding more with each feature.
-Translating all of it is a treadmill that regenerates on every sync. Only the
-model-visible surface is worth carrying locally:
-
-- `src/tools/primitives/getCustomPerspectiveTasks.ts` — the entire rendered output
-- `src/context/prompts.ts` — Chinese section headings in the daily-planning prompt
-- `src/utils/omnifocusScripts/getCustomPerspectiveTasks.js` — error strings
-- Two tool descriptions in `src/tools/definitions/` (`getCustomPerspectiveTasks.ts`, `managePerspectives.ts`)
-
-Do **not** translate comments, `README.zh.md`, `docs/cookbook.zh.md`, or the test
-fixtures — the CJK strings in `perspectiveRuleDsl.test.ts` and friends deliberately
-exercise CJK tag handling.
-
 ### Repoint Claude Desktop at this clone
 
 `claude_desktop_config.json` still points at the old Dropbox copy
@@ -58,6 +43,50 @@ deleted afterwards.
 Upstream added structured output to 16 of 26 tools. Worth reviewing whether the
 remaining 10 would benefit, and whether any local formatting preference is better
 expressed as a structured-output consumer than as a fork-local rendering change.
+
+---
+
+## Carried local deltas — re-apply after every upstream sync
+
+These are the only intentional divergences from upstream. Everything else in the fork
+should stay byte-identical so merges remain trivial. Verified complete 2026-08-21.
+
+### Input length caps on the AppleScript path
+
+12 schema files under `src/tools/definitions/` carry `.max()` bounds, enforced by
+`inputCaps.test.ts`. See the cap table in CLAUDE.md. Upstream has not adopted these,
+so a new field on an AppleScript-path schema needs a cap adding by hand.
+
+### Narrow i18n of the model-visible surface
+
+Done in `bfe004c`. Upstream still ships Chinese in ~16 source files and keeps adding
+more with each feature, so translating all of it is a treadmill. Only these carry:
+
+- `src/tools/primitives/getCustomPerspectiveTasks.ts` — the entire rendered output
+- `src/context/prompts.ts` — section headings in the daily-planning prompt (and the
+  matching assertions in `prompts.test.ts`)
+- `src/utils/omnifocusScripts/getCustomPerspectiveTasks.js` — three thrown error strings
+- Two tool descriptions in `src/tools/definitions/` (`getCustomPerspectiveTasks.ts`,
+  `managePerspectives.ts`)
+
+Deliberately **not** translated, and re-checking these each sync is wasted effort:
+comments, `README.zh.md`, `docs/cookbook.zh.md`, the CJK test fixtures (they exercise
+CJK tag handling on purpose), the `inboxLabel` fallback at `perspectiveTaskTree.ts:65`
+(the only production caller passes `'Inbox'` explicitly), and the regex at
+`scriptExecution.ts:164` — it matches legacy hardcoded script text, so translating it
+would stop it matching.
+
+### Structured error on the attachment path guard
+
+`readLinkedAttachment` in `src/tools/primitives/readTaskAttachment.ts` wraps
+`resolveLinkedAttachmentPath` in try/catch and returns `{ success: false, error }`.
+Upstream lets the guard throw straight through the handler, which surfaces as an
+unhandled tool error instead of a structured response. The guard itself is upstream's
+verbatim, so only the wrapper is local.
+
+`readTaskAttachment.test.ts` also carries three regression tests beyond upstream's
+four: `..` traversal, the home directory itself, and the prefix-sibling case
+(`/Users/example-other` against home `/Users/example`).
 
 ---
 
