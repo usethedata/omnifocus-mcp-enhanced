@@ -33,11 +33,6 @@ which is a May build of the pre-2.4.0 fork. Nothing here is live until it is rep
 `~/LocalProgs/ai/omnifocus-mcp-enhanced/dist/server.js`. The old Dropbox copy can be
 deleted afterwards.
 
-### Delete superseded branches
-
-`2026-04-security-high`, `2026-04-security-low`, `add-task-fields-to-formatter`, and
-`document-desktop-install` are all fully superseded — locally and on `origin`.
-
 ### Structured-output opportunity
 
 Upstream added structured output to 16 of 26 tools. Worth reviewing whether the
@@ -100,6 +95,19 @@ Once the `dump_database` item above lands, update the runbooks that still work a
 
 A procedure update means runbook + scripts + markdown + dead-code cleanup, not just the
 runbook.
+
+---
+
+## Done — local fork maintenance
+
+- **Superseded branches deleted** (2026-08-21) — `2026-04-security-high`,
+  `2026-04-security-low`, `add-task-fields-to-formatter`, `document-desktop-install`,
+  removed locally and on `origin`. Content verified preserved first: the three merge
+  tips carried no unique authored commits, and `document-desktop-install`'s one unique
+  commit (`af0cf28`, README heading levels) is in upstream's README today — upstream
+  merged that PR and extended it. Public-fork branches on `github_public` were left
+  alone. Surviving refs: `main`, `bew-local`, `bew-local-pre-2.4.0`, tag
+  `bew-local-20260818`.
 
 ---
 
