@@ -25,12 +25,17 @@ projects, which currently uses JXA via Control your Mac to enumerate them.
 
 ## Open — local fork maintenance
 
-### Repoint Claude Desktop at this clone
+### Finish the Claude Desktop repoint on the second machine
 
-`claude_desktop_config.json` still points at the previous clone under the file-sync
-folder, which is a May build of the pre-2.4.0 fork. Nothing here is live until it is
-repointed at `~/LocalProgs/ai/omnifocus-mcp-enhanced/dist/server.js`. The old copy can be
-deleted afterwards.
+Done on the first machine (2026-08-21): `claude_desktop_config.json` now points at
+`~/LocalProgs/ai/omnifocus-mcp-enhanced/dist/server.js` and the previous copy under the
+file-sync folder is no longer referenced. The second machine still needs the same edit.
+
+The config is machine-local and not in git, and it holds far more than `mcpServers` —
+edit the one path in place and keep the rest, rather than replacing the file.
+
+Once both machines are repointed, the old clone under the file-sync folder can be
+deleted.
 
 ### Structured-output opportunity
 

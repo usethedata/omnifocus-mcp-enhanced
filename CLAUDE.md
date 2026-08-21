@@ -15,8 +15,15 @@ npm run benchmark:smoke
 
 The build copies the OmniJS scripts from `src/utils/omnifocusScripts/` into `dist/`
 rather than compiling them — they are plain JS that runs inside OmniFocus. `npm test`
-builds first, then runs `node --test` over the compiled `dist/**/*.test.js` plus
-`scripts/*.test.mjs`. The suite is Node's built-in runner (`node:test` +
+builds first, then runs `node --test` over the compiled tests plus `scripts/*.test.mjs`.
+
+The `test` script lists each test directory explicitly (`dist/*.test.js`,
+`dist/context/*.test.js`, `dist/tools/*.test.js`, and so on) rather than globbing
+recursively. All six directories that currently hold tests are covered, but **a test
+file in a new subdirectory is silently skipped, not reported** — add the directory to
+the `test` script when you create one.
+
+The suite is Node's built-in runner (`node:test` +
 `node:assert/strict`) with no third-party test dependencies, and covers pure logic
 only — it never touches OmniFocus. Anything crossing the live boundary still needs
 manual testing on a Mac with OmniFocus running.
@@ -94,6 +101,33 @@ silently drop the bounds. Fields on the OmniJS path do not need caps.
 - **`origin`** — a private Git server on the local network. Default push target, holds every branch.
 - **`github_public`** — the public fork on GitHub. Synced to upstream.
 - **`upstream`** — `jqlts1/omnifocus-mcp-enhanced` on GitHub. **Fetch only; never push.**
+
+### `bew-local` is published — keep these docs generic
+
+`bew-local` is pushed to `github_public`, so **everything tracked in this repo is public**,
+CLAUDE.md and TODO.md included. Write them for a stranger reading them on GitHub.
+
+Do not commit, to any tracked file:
+
+- hostnames or machine names (say "a private Git server on the local network", "two Macs")
+- absolute paths that reveal a personal directory tree — a bare `~/LocalProgs/...` is fine,
+  a full cloud-sync or vault path is not
+- vault, note, or runbook directory structure — filenames alone are fine
+- account names, device IDs, or anything from `claude_desktop_config.json`
+
+Machine-specific and personal detail belongs in the per-project memory directory
+(`~/.claude/projects/<project>/memory/`), which is outside the repo, or in an untracked
+file. Before pushing to `github_public`, check with:
+
+```bash
+# fill in this machine's hostnames, sync-folder name, and vault directories
+git grep -n -I -E "<pattern1>|<pattern2>" -- .
+```
+
+Keep the real patterns out of the tracked file — otherwise the check matches itself.
+
+Git history is public too: the same rule applies to commit messages, and rewriting a
+published commit to remove something is not a real remedy.
 
 ## Branches
 
