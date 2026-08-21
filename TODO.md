@@ -75,6 +75,33 @@ CJK tag handling on purpose), the `inboxLabel` fallback at `perspectiveTaskTree.
 `scriptExecution.ts:164` — it matches legacy hardcoded script text, so translating it
 would stop it matching.
 
+### JSON Schema dialect relabelling for tool schemas
+
+`src/utils/jsonSchemaDialect.ts`, wired into `transport.send` in `server.ts`.
+
+The SDK hardcodes JSON Schema draft-07 for tool schemas: the Zod v3 branch of
+`server/zod-json-schema-compat.js` calls `zodToJsonSchema` without `target`, and
+`server/mcp.js` never passes one on the v4 branch either. There is no config knob, Zod
+v4 does not help, and SDK 1.30.0 is the latest release. Some clients reject a draft-07
+`outputSchema`, which made all 16 structured-output tools unreachable from the Cowork
+bridge — including `get_tasks` and `filter_tasks`, the backbone of weekly review.
+
+The schemas are already valid 2020-12; only the label was wrong. The helper relabels it,
+but only after checking the schema for constructs that differ between dialects
+(`definitions`, tuple `items`, boolean `exclusiveMinimum`/`Maximum`, `dependencies`,
+`$recursiveRef`, `$ref` beside validation keywords). Anything sensitive is passed through
+still labelled draft-07 — as upstream adds tools this degrades to "no change" rather than
+to a wrong label.
+
+**Not yet offered upstream.** Running locally first to confirm it addresses the whole
+problem. Revisit once there is real usage behind it. Remove entirely if the SDK starts
+emitting a modern dialect.
+
+**Still open on the bridge side, and not fixable here:** prompts and resources do not
+cross the Cowork bridge at all (it proxies tools only), so the 6 prompts and 3 resources
+are invisible there. The server serves them correctly over stdio and the desktop client
+lists them.
+
 ### Structured error on the attachment path guard
 
 `readLinkedAttachment` in `src/tools/primitives/readTaskAttachment.ts` wraps
