@@ -91,8 +91,8 @@ silently drop the bounds. Fields on the OmniJS path do not need caps.
 
 ## Remotes
 
-- **`origin`** — Private Synology Git server (bewsyn). Default push target, holds every branch.
-- **`github_public`** — Bruce's public `usethedata` fork on GitHub. Synced to upstream.
+- **`origin`** — a private Git server on the local network. Default push target, holds every branch.
+- **`github_public`** — the public fork on GitHub. Synced to upstream.
 - **`upstream`** — `jqlts1/omnifocus-mcp-enhanced` on GitHub. **Fetch only; never push.**
 
 ## Branches
@@ -113,9 +113,9 @@ anything sensitive.
 
 ## Two machines
 
-This repo is cloned independently on **silverbear** and **superbear**, each at
-`~/LocalProgs/ai/omnifocus-mcp-enhanced`, deliberately outside Dropbox — a synced `.git`
-caused problems. Git is the only sync mechanism.
+This repo is cloned independently on two Macs, each at
+`~/LocalProgs/ai/omnifocus-mcp-enhanced`, deliberately outside any file-sync folder — a
+synced `.git` caused problems. Git is the only sync mechanism.
 
 - `dist/` and `node_modules/` are gitignored and built per machine. Never copy them between machines.
 - `git pull --ff-only` before starting work; both machines push `bew-local` to `origin`.

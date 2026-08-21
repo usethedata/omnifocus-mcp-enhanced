@@ -27,10 +27,9 @@ projects, which currently uses JXA via Control your Mac to enumerate them.
 
 ### Repoint Claude Desktop at this clone
 
-`claude_desktop_config.json` still points at the old Dropbox copy
-(`~/Library/CloudStorage/Dropbox/BEWMain/Progs/ai/omnifocus-mcp-enhanced/dist/server.js`),
-which is a May build of the pre-2.4.0 fork. Nothing here is live until it is repointed at
-`~/LocalProgs/ai/omnifocus-mcp-enhanced/dist/server.js`. The old Dropbox copy can be
+`claude_desktop_config.json` still points at the previous clone under the file-sync
+folder, which is a May build of the pre-2.4.0 fork. Nothing here is live until it is
+repointed at `~/LocalProgs/ai/omnifocus-mcp-enhanced/dist/server.js`. The old copy can be
 deleted afterwards.
 
 ### Structured-output opportunity
@@ -89,9 +88,9 @@ four: `..` traversal, the home directory itself, and the prefix-sibling case
 
 Once the `dump_database` item above lands, update the runbooks that still work around it:
 
-- `MainVault/Myra/Runbook/maintain-project-folders-and-metadata.md` — Steps 1, 4c, 5, 6b
-- `MainVault/Myra/Runbook/quarterly-plan-and-review.md` — Step 3, plus the now-dead `MainVault/Myra/Scripts/get_projects.js`
-- `MainVault/Myra/Runbook/obsidian-omnifocus-task-reconciliation.md` — Step 3
+- `maintain-project-folders-and-metadata.md` — Steps 1, 4c, 5, 6b
+- `quarterly-plan-and-review.md` — Step 3, plus the now-dead `get_projects.js` helper
+- `obsidian-omnifocus-task-reconciliation.md` — Step 3
 
 A procedure update means runbook + scripts + markdown + dead-code cleanup, not just the
 runbook.
