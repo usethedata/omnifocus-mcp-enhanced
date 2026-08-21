@@ -97,10 +97,16 @@ to a wrong label.
 problem. Revisit once there is real usage behind it. Remove entirely if the SDK starts
 emitting a modern dialect.
 
-**Still open on the bridge side, and not fixable here:** prompts and resources do not
-cross the Cowork bridge at all (it proxies tools only), so the 6 prompts and 3 resources
-are invisible there. The server serves them correctly over stdio and the desktop client
-lists them.
+**Known bridge gap, deliberately not addressed:** prompts and resources do not cross the
+Cowork bridge (it proxies tools only), so the 6 prompts and 3 resources are invisible to
+a Cowork agent. This is not a desktop-app-versus-Cowork split — both run inside the same
+application, which opens a separate MCP connection per surface; the chat surface speaks
+the full protocol, the bridge forwards tools only.
+
+Reviews are run entirely from the chat interface, where prompts and resources work, so
+this does not affect any real workflow. Wrapping the prompts as a tool to get them across
+the bridge was considered and rejected on those grounds — do not re-propose it unless
+reviews move into Cowork.
 
 ### Structured error on the attachment path guard
 
