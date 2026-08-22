@@ -25,23 +25,34 @@ returns Done projects — and their notes — directly. The dump gap is still re
 
 ---
 
-### `get_task_by_id` does not report completion status
+### `get_task_by_id` name lookup can resolve to a completed past instance
 
-`formatTaskInfo` in `src/tools/definitions/getTaskById.ts` never emits a completion
-field, and the tool has no structured output, so the `completed` boolean that
-`src/tools/primitives/getTaskById.ts` already carries is dropped before it reaches the
-model. A completed task and an incomplete one render identically. Verified 2026-08-21
-against a completed task: the rendered output contained no completion line at all.
+Calling `get_task_by_id` with `taskName` on a repeating task returns one of its completed
+past instances rather than the live task. Verified 2026-08-21: `taskName: "Pay bills"`
+returned `g6WvJb6iEzV.53` with `Completed: Yes`, while the live task is `g6WvJb6iEzV` —
+`filter_tasks` reports that one `Available`, `completedDate: null`, planned 2026-08-21.
+The instance-suffixed ids (`<primaryKey>.<n>`) are the repetition history.
 
-**Impact.** `obsidian-omnifocus-task-reconciliation` Step 3 decides completion by looking
-for `Completed: Yes` in this tool's output, so it silently reports every task as
-incomplete — a false clean result on the pre-flight check that gates weekly planning.
-The pre-2.4.0 fork emitted the field; the rebuild onto upstream lost it.
+The result is accurate for the instance it resolved to and misleading as an answer to
+"is this task done?". Name lookup has no way to say which instance the caller meant.
 
-**Options.** Add a completion line to the formatter — a small local delta on an upstream
-file, and the smaller change — or move the procedure onto `filter_tasks`, which returns
-`taskStatus` and `completedDate` in structured output but is a filter rather than a
-by-ID lookup, so it needs a date-bounded sweep plus a set-membership test.
+The mechanism is broader than repeating tasks. `getTaskById.js:46` is a plain
+`flattenedTasks.find(candidate => candidate.name === taskName)` — no status filter, no
+preference for a live task. It returns the **first** match in document order, so any two
+tasks sharing a name collide the same way; repetition history is just the most common way
+to end up with duplicates. That also makes the bug look intermittent rather than
+reproducible, since the answer depends on document order rather than on a rule.
+
+`taskId` is unaffected: that branch matches `candidate.id.primaryKey`, so the base key
+resolves only to the live task and never to an instance.
+
+**Impact.** None on the runbooks today — `obsidian-omnifocus-task-reconciliation` reads
+ids out of `omnifocus:///task/ID` links and never searches by name. It would bite any
+caller that looks a repeating task up by name and then reads completion or dates from it.
+
+**Options.** Prefer the live task when a name matches more than one instance, or return
+the match set instead of silently picking one. Either way `taskId` stays the reliable
+path, and callers that can use an id should.
 
 ---
 
@@ -176,8 +187,9 @@ covers what these procedures needed:
   reading it back through AppleScript.
 - `quarterly-plan-and-review.md` — Step 3 moved to `get_projects`; the `get_projects.js`
   helper is retired and dropped from the procedure's declared dependencies.
-- `obsidian-omnifocus-task-reconciliation.md` — still open, for an unrelated reason. See
-  the `get_task_by_id` gap above.
+- `obsidian-omnifocus-task-reconciliation.md` — no change needed. Step 3's `Completed: Yes`
+  test is valid again now that the formatter emits the field (see the carried delta below).
+  Verified 2026-08-21 against both a completed and an open task.
 
 A procedure update means runbook + scripts + markdown + dead-code cleanup, not just the
 runbook.
