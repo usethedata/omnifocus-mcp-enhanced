@@ -18,8 +18,30 @@ them back.
 **Needed.** Have the dump script read `hideCompleted` (or an explicit
 `includeCompletedProjects`) from `injectedArgs` and skip the filter when asked.
 
-**Unblocks.** `maintain-project-folders-and-metadata` Step 4c — auto-archive of Done
-projects, which currently uses JXA via Control your Mac to enumerate them.
+**No longer blocking.** Step 4c of `maintain-project-folders-and-metadata` enumerated Done
+projects through JXA because of this gap. As of 2026-08-21 it uses `get_projects`, which
+returns Done projects — and their notes — directly. The dump gap is still real and
+`dump_database` remains unusable as a data source, but nothing downstream waits on it.
+
+---
+
+### `get_task_by_id` does not report completion status
+
+`formatTaskInfo` in `src/tools/definitions/getTaskById.ts` never emits a completion
+field, and the tool has no structured output, so the `completed` boolean that
+`src/tools/primitives/getTaskById.ts` already carries is dropped before it reaches the
+model. A completed task and an incomplete one render identically. Verified 2026-08-21
+against a completed task: the rendered output contained no completion line at all.
+
+**Impact.** `obsidian-omnifocus-task-reconciliation` Step 3 decides completion by looking
+for `Completed: Yes` in this tool's output, so it silently reports every task as
+incomplete — a false clean result on the pre-flight check that gates weekly planning.
+The pre-2.4.0 fork emitted the field; the rebuild onto upstream lost it.
+
+**Options.** Add a completion line to the formatter — a small local delta on an upstream
+file, and the smaller change — or move the procedure onto `filter_tasks`, which returns
+`taskStatus` and `completedDate` in structured output but is a filter rather than a
+by-ID lookup, so it needs a date-bounded sweep plus a set-membership test.
 
 ---
 
@@ -108,6 +130,28 @@ this does not affect any real workflow. Wrapping the prompts as a tool to get th
 the bridge was considered and rejected on those grounds — do not re-propose it unless
 reviews move into Cowork.
 
+### Completion, flagged, and estimate lines in `get_task_by_id`
+
+`formatTaskInfo` in `src/tools/definitions/getTaskById.ts` emits `Completed`, `Flagged`,
+and `Estimated`. These were a local delta before the 2.4.0 rebuild; upstream has never
+had them.
+
+The 2026-08-18 rebuild dropped them, and it went unnoticed until 2026-08-21 because the
+loss is silent: a completed task rendered identically to an open one, so the
+reconciliation runbook's Step 3 pre-flight gate returned a false clean on every run.
+
+`get_task_by_id` is one of the 10 tools **without** structured output, so this prose
+render is the only channel a caller has — an omission here is unrecoverable downstream.
+That is why this tool needs the delta and the others did not: everywhere else the same
+data survived the rebuild inside `outputSchema`.
+
+Guarded by four tests in `getTaskById.test.ts`, including one asserting a completed task
+does not render identically to an open one. The guard was verified by removing the line
+and confirming the suite fails.
+
+**Better fix, not yet done:** give `get_task_by_id` structured output, so procedures stop
+parsing prose. See the structured-output item above.
+
 ### Structured error on the attachment path guard
 
 `readLinkedAttachment` in `src/tools/primitives/readTaskAttachment.ts` wraps
@@ -124,11 +168,16 @@ four: `..` traversal, the home directory itself, and the prefix-sibling case
 
 ## Follow-up in the Obsidian vault
 
-Once the `dump_database` item above lands, update the runbooks that still work around it:
+Done 2026-08-21, and not by waiting on the `dump_database` item — `get_projects` already
+covers what these procedures needed:
 
-- `maintain-project-folders-and-metadata.md` — Steps 1, 4c, 5, 6b
-- `quarterly-plan-and-review.md` — Step 3, plus the now-dead `get_projects.js` helper
-- `obsidian-omnifocus-task-reconciliation.md` — Step 3
+- `maintain-project-folders-and-metadata.md` — Step 1 moved from JXA to `get_projects`;
+  Steps 4c, 6b, and 7b.3 now reuse the project note Step 1 already returned instead of
+  reading it back through AppleScript.
+- `quarterly-plan-and-review.md` — Step 3 moved to `get_projects`; the `get_projects.js`
+  helper is retired and dropped from the procedure's declared dependencies.
+- `obsidian-omnifocus-task-reconciliation.md` — still open, for an unrelated reason. See
+  the `get_task_by_id` gap above.
 
 A procedure update means runbook + scripts + markdown + dead-code cleanup, not just the
 runbook.

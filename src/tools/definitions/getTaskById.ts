@@ -60,6 +60,16 @@ export function formatTaskInfo(
     infoText += `• **Planned**: ${new Date(task.plannedDate).toLocaleString()}\n`;
   }
 
+  // Completion and flagged state are the only signal some callers get: this tool
+  // has no structured output, so anything omitted here is unrecoverable downstream.
+  // Covered by getTaskById.test.ts — do not drop these on an upstream merge.
+  infoText += `• **Completed**: ${task.completed ? 'Yes' : 'No'}\n`;
+  infoText += `• **Flagged**: ${task.flagged ? 'Yes' : 'No'}\n`;
+
+  if (task.estimatedMinutes) {
+    infoText += `• **Estimated**: ${task.estimatedMinutes} minutes\n`;
+  }
+
   if (task.repetition) {
     const parts = [task.repetition.ruleString];
     if (task.repetition.scheduleType) parts.push(task.repetition.scheduleType);
